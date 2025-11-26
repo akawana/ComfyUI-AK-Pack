@@ -17,7 +17,7 @@ class IndexMultiple:
             },
         }
 
-    RETURN_TYPES = ("*",) * 50
+    RETURN_TYPES = (ANY_TYPE,) * 50
     RETURN_NAMES = tuple(f"item_{i}" for i in range(50))
 
     FUNCTION = "execute"
