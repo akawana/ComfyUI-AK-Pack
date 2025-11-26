@@ -1,0 +1,27 @@
+[project]
+name = "comfyui-utils-extra"
+publisher = "akawana"
+version = "1.00"
+frontend_version = "1.00"
+description = "Nodes — utility tools. Index Multiple is used for expanding multiple values from a list."
+readme = "README.md"
+requires-python = ">=3.10"
+
+packages = ["nodes"]
+
+[project.urls]
+Repository = "https://github.com/akawana/ComfyUI-Utils-extra"
+Documentation = "https://github.com/akawana/ComfyUI-Utils-extra/wiki"
+"Bug Tracker" = "https://github.com/akawana/ComfyUI-Utils-extra/issues"
+
+[tool.comfy_node]
+package = "nodes"
+publisher = "akawana"
+display_name = "Utils Extra"
+summary = "Index Multiple"
+tags = ["utility", "list", "batch", "array"]
+
+[tool.comfy]
+PublisherId = "akawana" # TODO (fill in Publisher ID from Comfy Registry Website).
+DisplayName = "Utils Extra" # Display name for the Custom Node. Can be changed later.
+Icon = "https://example.com/icon.png"
