@@ -3,7 +3,7 @@ class MuteOnBoolean:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "state": ("BOOLEAN", {"default": True}),
+                "active": ("BOOLEAN", {"default": True}),
             }
         }
 

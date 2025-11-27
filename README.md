@@ -110,6 +110,20 @@ If **all** matching groups are Muted/Bypassed -> output is `false`.
 
 ---
 
+## BypassOnBoolean & MuteOnBoolean
+**Category:** `utils/logic`  
+**Class:** `BypassOnBoolean`
+**Class:** `MuteOnBoolean`
+
+Changes the **Bypass state** of the group in which this node is placed, based on a Boolean input.
+
+- **Input = `false`** -> the node **bypasses (disables)** its group  
+- **Input = `true`** -> the node **enables** its group
+
+Useful when combined with **IsOneOfGroupsActive** to dynamically control group behavior without manual toggling. If IsOneOfGroupsActive returns true because one of your target groups is active, you can immediately enable any other groups you need.
+
+---
+
 ## RepeatGroupState
 **Category:** `utils/logic`  
 **Class:** `RepeatGroupState`

@@ -48,7 +48,7 @@ function setNodeMuted(node, muted) {
 function updateMuteOnBooleanNode(graph, node) {
     if (!node.widgets) return;
 
-    const boolWidget = node.widgets.find((w) => w.name === "state");
+    const boolWidget = node.widgets.find((w) => w.name === "active");
     if (!boolWidget) return;
 
     const enabled = boolWidget.value === true;
