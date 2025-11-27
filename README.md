@@ -26,6 +26,8 @@ Optionally replaces missing values with a fallback (`if_none`).
 <details>
 <summary><b>Show detailed explanation & examples</b></summary>
 
+<img src="preview_index_multiple.jpg" width="100%"/>
+
 ### How it works
 1. Connect any List/Batch to `input_any`.
 2. Set:
@@ -69,6 +71,8 @@ It outputs them as a **LIST**, suitable for passing into:
 - any **SetNode**
 - custom controller graphs
 
+<img src="preview_sampler_settings.jpg" width="100%"/>
+
 ---
 
 ## AKSettings Out
@@ -96,6 +100,8 @@ If **all** matching groups are Muted/Bypassed -> output is `false`.
 <details>
 <summary><b>More details</b></summary>
 
+<img src="preview_is_group_active.jpg" width="100%"/>
+
 - Matching is substring-based.  
   Example: `"Face"` matches `FaceFix`, `FaceDetail`, `Faces`, etc.
 - If no matching groups are found -> output = `false`.
@@ -108,7 +114,7 @@ If **all** matching groups are Muted/Bypassed -> output is `false`.
 **Category:** `utils/logic`  
 **Class:** `RepeatGroupState`
 
-A connection-free node that synchronizes the state of its own group with the state of other groups matching a given substring.
+A connection-free interactive node that synchronizes the state of its own group with the state of other groups matching a given substring.
 
 Logic:
 
@@ -120,15 +126,14 @@ Logic:
 This allows groups to depend on other groups without wires, similar to rgthree repeaters.
 
 <details>
+
+<img src="preview_repeater.jpg" width="100%"/>
+
 <summary><b>Usage examples</b></summary>
 
 ### Example 1 — enable your group if “MainFix” is active
 Filter: `MainFix`  
 If any "MainFix*" group is Active -> enable the current group.
-
-### Example 2 — auto-disable helper groups
-Filter: `Hands`  
-If all hand-related groups are muted -> disable current group too.
 
 </details>
 
