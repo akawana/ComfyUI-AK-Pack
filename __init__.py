@@ -1,6 +1,25 @@
-# Frontend extension (JS)
 WEB_DIRECTORY = "./js"
 
-from .nodes.IndexMultiple import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
+from .nodes.IndexMultiple import NODE_CLASS_MAPPINGS as INDEX_MAPPINGS
+from .nodes.IndexMultiple import NODE_DISPLAY_NAME_MAPPINGS as INDEX_DISPLAY
 
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']
+from .nodes.AKSamplerSettings import NODE_CLASS_MAPPINGS as AKS_MAPPINGS
+from .nodes.AKSamplerSettings import NODE_DISPLAY_NAME_MAPPINGS as AKS_DISPLAY
+
+from .nodes.AKSettingsOut import NODE_CLASS_MAPPINGS as AKOUT_MAPPINGS
+from .nodes.AKSettingsOut import NODE_DISPLAY_NAME_MAPPINGS as AKOUT_DISPLAY
+
+
+NODE_CLASS_MAPPINGS = {
+    **INDEX_MAPPINGS,
+    **AKS_MAPPINGS,
+    **AKOUT_MAPPINGS,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    **INDEX_DISPLAY,
+    **AKS_DISPLAY,
+    **AKOUT_DISPLAY,
+}
+
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
