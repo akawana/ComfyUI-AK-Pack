@@ -1,12 +1,15 @@
 ## Other My Nodes
 
-### Utilities for working with Lists and toggling groups
+Utilities for working with Lists and toggling groups
+
 https://github.com/akawana/ComfyUI-Utils-extra
 
-### Extra shortcuts for editing texts and prompts + text splitting for Regional Prompts
-https://github.com/akawana/ComfyUI-Keybinding-extra
+Folding of promts in to tree with extra features. Extra shortcuts for editing prompts. Reginal prompting text separation.
 
-### RGBYP 5-color mask editor
+https://github.com/akawana/ComfyUI-Folded-Prompts
+
+RGBYP 5-color mask editor
+
 https://github.com/akawana/ComfyUI-RGBYP-Mask-Editor
 
 ---
@@ -25,9 +28,8 @@ This repository will be gradually expanded with new practical utilities.
 
 ## Index Multiple
 **Category:** `utils/list`  
-**Class:** `IndexMultiple`
 
-Extracts a specific range from any **List** or **Batch** (images, masks, latents, text — any type) and creates individual outputs for that range.  
+Extracts a specific range from any **List** or **Batch** (images, masks, latents, text ï¿½ any type) and creates individual outputs for that range.  
 Optionally replaces missing values with a fallback (`if_none`).
 
 <details>
@@ -38,12 +40,12 @@ Optionally replaces missing values with a fallback (`if_none`).
 ### How it works
 1. Connect any List/Batch to `input_any`.
 2. Set:
-   - `starting_index` — the first index to output  
-   - `length` — how many elements to output
-3. Outputs are generated as `item_0 … item_49`.  
+   - `starting_index` ï¿½ the first index to output  
+   - `length` ï¿½ how many elements to output
+3. Outputs are generated as `item_0 ï¿½ item_49`.  
    Only the first `length` outputs are meaningful.
 
-### Example 1 — simple extraction
+### Example 1 ï¿½ simple extraction
 Input:  
 `[mask_0, mask_1, mask_2, mask_3, mask_4]`
 
@@ -55,7 +57,7 @@ Result:
 - `item_0 = mask_3`
 - `item_1 = mask_4`
 
-### Example 2 — unknown list length + fallback
+### Example 2 ï¿½ unknown list length + fallback
 If you ask for 5 outputs but receive only 2 items, the rest become `None`, or `if_none` if connected.
 
 </details>
@@ -64,7 +66,6 @@ If you ask for 5 outputs but receive only 2 items, the rest become `None`, or `i
 
 ## AKSampler Settings
 **Category:** `utils/settings`  
-**Class:** `AKSamplerSettings`
 
 A minimalistic node that stores three key sampler parameters:
 
@@ -84,7 +85,6 @@ It outputs them as a **LIST**, suitable for passing into:
 
 ## AKSettings Out
 **Category:** `utils/settings`  
-**Class:** `AKSettingsOut`
 
 Expands the LIST received from **AKSampler Settings** into three independent outputs:
 
@@ -98,7 +98,6 @@ Useful for distributing sampler parameters across multiple samplers or exposing 
 
 ## IsOneOfGroupsActive
 **Category:** `utils/logic`  
-**Class:** `IsOneOfGroupsActive`
 
 Checks the state of all groups whose names **contain a specified substring**.  
 If **at least one** matching group is Active -> output is `true`.  
@@ -119,7 +118,6 @@ If **all** matching groups are Muted/Bypassed -> output is `false`.
 
 ## RepeatGroupState
 **Category:** `utils/logic`  
-**Class:** `RepeatGroupState`
 
 A connection-free interactive node that synchronizes the state of its own group with the state of other groups matching a given substring.
 
@@ -138,11 +136,18 @@ This allows groups to depend on other groups without wires, similar to rgthree r
 
 <summary><b>Usage examples</b></summary>
 
-### Example 1 — enable your group if “MainFix” is active
+### Example 1 ï¿½ enable your group if ï¿½MainFixï¿½ is active
 Filter: `MainFix`  
 If any "MainFix*" group is Active -> enable the current group.
 
 </details>
+
+---
+
+## PreviewRawText
+**Category:** `utils`  
+
+Just a text preview bridge node because comfyui ruined the original Preview Any.
 
 ---
 
