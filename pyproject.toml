@@ -1,8 +1,8 @@
 [project]
 name = "comfyui-utils-extra"
 publisher = "akawana2"
-version = "1.00"
-frontend_version = "1.00"
+version = "2.01"
+frontend_version = "2.01"
 description = "Utility tools. Index Multiple, CLIP Multiple, nodes to enable diable groups."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,4 +25,4 @@ tags = ["utility", "list", "group", "clip"]
 [tool.comfy]
 PublisherId = "akawana2" # TODO (fill in Publisher ID from Comfy Registry Website).
 DisplayName = "Utils Extra" # Display name for the Custom Node. Can be changed later.
-Icon = "https://github.com/akawana/ComfyUI-Utils-extra/icon.jpg"
+Icon = "https://raw.githubusercontent.com/akawana/ComfyUI-Utils-extra/refs/heads/main/icon.jpg"
