@@ -3,9 +3,10 @@ name = "comfyui-utils-extra"
 publisher = "akawana2"
 version = "1.00"
 frontend_version = "1.00"
-description = "Nodes — utility tools. Index Multiple, CLIP Multiple, nodes to enable diable groups."
+description = "Nodes ï¿½ utility tools. Index Multiple, CLIP Multiple, nodes to enable diable groups."
 readme = "README.md"
 requires-python = ">=3.10"
+
 
 packages = ["nodes"]
 
