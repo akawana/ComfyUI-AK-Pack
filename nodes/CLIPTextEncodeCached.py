@@ -1,6 +1,8 @@
 class CLIPTextEncodeCached:
     # Runtime cache: text_hash -> conditioning
-    _text_cache = {}
+    _last_text = None
+    _last_cond = None
+    _last_clip_id = None
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -25,20 +27,21 @@ class CLIPTextEncodeCached:
         if text is None:
             text = ""
 
-        # Normalize text for stable caching
-        # norm_text = text.replace("\r\n", "\n").replace("\r", "\n")
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
 
-        key = hash(text)
-        cached = cls._text_cache.get(key)
-        if cached is not None:
-            return (cached,)
+        clip_id = id(clip)
 
-        # Encode only if not cached
+        if cls._last_clip_id == clip_id and cls._last_text == text and cls._last_cond is not None:
+            return (cls._last_cond,)
+
         tokens = clip.tokenize(text)
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
         conditioning = [[cond, {"pooled_output": pooled}]]
 
-        cls._text_cache[key] = conditioning
+        cls._last_clip_id = clip_id
+        cls._last_text = text
+        cls._last_cond = conditioning
+
         return (conditioning,)
 
 

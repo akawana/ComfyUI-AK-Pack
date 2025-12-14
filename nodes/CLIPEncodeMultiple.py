@@ -9,7 +9,10 @@ ANY_TYPE = AnyType("*")
 
 class CLIPEncodeMultiple:
     empty_cache = {}
-    text_cache = {}
+    # text_cache = {}
+
+    last_items = None
+    idx_cache = {}
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -47,32 +50,15 @@ class CLIPEncodeMultiple:
 
     @classmethod
     def _encode_text(cls, clip, text):
-        # norm = text.replace("\r\n", "\n")
-        key = (id(clip), hash(text))
-        # key = hash(text.replace("\r\n", "\n"))
-        # key = (cls._clip_key(clip), text)
-
-        # print("[enc] key=", key, "len=", len(text), "tail=", repr(text))
-
-        cached = cls.text_cache.get(key)
-        if cached is not None:
-            # print("[enc] HIT")
-            return cached
-
         tokens = clip.tokenize(text)
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
-        out = [[cond, {"pooled_output": pooled}]]
-
-        cls.text_cache[key] = out
-        return out
+        return [[cond, {"pooled_output": pooled}]]
 
     @staticmethod
     def _clip_key(clip):
-        # в comfy CLIP часто есть cond_stage_model — он стабильнее, чем wrapper
         inner = getattr(clip, "cond_stage_model", None)
         if inner is not None:
             return id(inner)
-        # иногда есть .clip или .model
         inner = getattr(clip, "clip", None) or getattr(clip, "model", None)
         if inner is not None:
             return id(inner)
@@ -120,6 +106,10 @@ class CLIPEncodeMultiple:
         start = max(0, int(start_raw))
         length_val = max(1, min(20, int(length_raw)))
 
+        if CLIPEncodeMultiple.last_items is None or len(CLIPEncodeMultiple.last_items) != len(items):
+            CLIPEncodeMultiple.last_items = [None] * len(items)
+            CLIPEncodeMultiple.idx_cache.clear()
+
         result = []
         empty_cond = None
 
@@ -133,8 +123,26 @@ class CLIPEncodeMultiple:
                     if empty_cond is None:
                         empty_cond = self._get_empty_cond(clip_obj)
                     cond = empty_cond
+                    CLIPEncodeMultiple.last_items[idx] = None
                 else:
-                    cond = self._encode_text(clip_obj, v)
+                    # cond = self._encode_text(clip_obj, v)
+                    clip_id = self._clip_key(clip_obj)
+                    prev = CLIPEncodeMultiple.last_items[idx]
+                    print("[idx]", idx, "eq_prev=", (v == prev), "len(v)=", len(v), "len(prev)=", (len(prev) if prev else None))
+                    if v == prev:
+                        cached = CLIPEncodeMultiple.idx_cache.get((clip_id, idx))
+                        print("[CACHE]", idx)
+                        if cached is not None:
+                            cond = cached
+                        else:
+                            cond = self._encode_text(clip_obj, v)
+                            CLIPEncodeMultiple.idx_cache[(clip_id, idx)] = cond
+                    else:
+                        cond = self._encode_text(clip_obj, v)
+                        CLIPEncodeMultiple.idx_cache[(clip_id, idx)] = cond
+                        CLIPEncodeMultiple.last_items[idx] = v
+                        print("[ENCODE]", idx, "len=", len(v), "prev_len=", (len(prev) if prev else None))
+
             else:
                 cond = None
 
