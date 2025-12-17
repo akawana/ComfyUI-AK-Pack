@@ -8,6 +8,7 @@ const SILENT_FILES = [
     "IsOneOfGroupsActive.js",
     "PreviewRawText.js",
     "RepeatGroupState.js",
+    "AKBaseSettings.js",
     "AKBase.js",
     "AKBase_io.js",
     "AKBase_input.js",
