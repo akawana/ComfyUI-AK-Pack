@@ -11,6 +11,7 @@ class AKBaseSettingsOut:
             }
         }
 
+    # RETURN_TYPES = ("STRING", "INT", "INT", comfy.samplers.SAMPLER_NAMES, comfy.samplers.SCHEDULER_NAMES, "INT", "FLOAT", "FLOAT", "INT")
     RETURN_TYPES = ("STRING", "INT", "INT", comfy.samplers.SAMPLER_NAMES, comfy.samplers.SCHEDULER_NAMES, "INT", "FLOAT", "FLOAT", "INT")
     RETURN_NAMES = (
         "output_folder",
@@ -39,8 +40,10 @@ class AKBaseSettingsOut:
         output_folder = str(data.get("output_folder", ""))
         width = int(data.get("width", 0) or 0)
         heigth = int(data.get("height", data.get("heigth", 0)) or 0)
-        sampler_name = str(data.get("sampler_name", ""))
-        scheduler = str(data.get("scheduler", ""))
+        # sampler_name = [str(data.get("sampler_name", "euler"))]
+        # scheduler = [str(data.get("scheduler", "normal"))]
+        sampler_name = comfy.samplers.SAMPLER_NAMES.insert(0, str(data.get("sampler_name", "euler")))
+        scheduler = comfy.samplers.SCHEDULER_NAMES.insert(0, str(data.get("scheduler", "normal")))
         seed = int(data.get("seed", 0) or 0)
         cfg = float(data.get("cfg", 0.0) or 0.0)
         denoise = float(data.get("denoise", 0.0) or 0.0)
