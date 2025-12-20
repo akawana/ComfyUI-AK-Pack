@@ -22,6 +22,9 @@ AK XZ Axis so called XY testing for any type of KSampler: [ComfyUI AK XZ Axis](h
 
 ---
 
+> [!IMPORTANT]
+> Guys, the nodes in this pack are the ones I use in my own workflows. I work with them every day. And yes, I change them often — especially if the nodes are in the _testing_ folder. Quite often, after updates, your connections may break. Please keep this in mind. The main purpose of these nodes is performance optimization. Yes, all of them can be found in other packs, but I make them faster.
+
 # ComfyUI-Utils-extra
 A compact collection of utility nodes for **ComfyUI** that I could not find in other node packs, but which I need in my production workflow.  
 They help automate repetitive tasks, relay group states, manage sampler parameters, and simplify work with lists.
