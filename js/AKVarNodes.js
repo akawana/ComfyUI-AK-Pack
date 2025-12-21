@@ -9,56 +9,30 @@ function _akCount(name, every = 50) {
   return n;
 }
 
-
-function getWidget(node, name) {
-  const ws = node?.widgets;
-  if (!ws) return null;
-  for (let i = 0; i < ws.length; i++) {
-    const w = ws[i];
-    if (w && w.name === name) return w;
-  }
-  return null;
-}
-
-
+const getWidget = (node, name) => node?.widgets?.find(w => w?.name === name) || null;
 
 let _akVarChangedName = null;
 
 function _setChangedName(oldName, newName, setterId) {
   _akVarChangedName = { old: oldName || "", new: newName || "", setter_id: setterId, t: Date.now() };
+  console.log("[AK] _setChangedName:", _akVarChangedName);
   return _akVarChangedName;
 }
 
-function _clearChangedNameLater(token) {
-  try {
-    setTimeout(() => {
-      if (_akVarChangedName === token) _akVarChangedName = null;
-    }, 0);
-  } catch (_) { }
-}
+// function _clearChangedNameLater(token) {
+//   try {
+//     setTimeout(() => {
+//       if (_akVarChangedName === token) _akVarChangedName = null;
+//     }, 0);
+//   } catch (_) { }
+// }
 
 function _isGetterNode(node) {
-  if (!node) return false;
-  if (node.type === "Getter") return true;
-  try {
-    const ins = node.inputs || [];
-    const outs = node.outputs || [];
-    const hasInp = ins.some(x => x && x.name === "inp");
-    const hasObj = outs.some(x => x && x.name === "OBJ");
-    if (hasInp && hasObj) return true;
-  } catch (_) { }
-  return false;
+  return node?.type === "Getter" || node?.comfyClass === "Getter";
 }
 
 function _isSetterNode(node) {
-  if (!node) return false;
-  if (node.type === "Setter") return true;
-  try {
-    const outs = node.outputs || [];
-    const hasOut = outs.some(x => x && x.name === "OUT");
-    if (hasOut) return true;
-  } catch (_) { }
-  return false;
+  return node?.type === "Setter" || node?.comfyClass === "Setter";
 }
 
 
@@ -78,54 +52,22 @@ function _readNodeVarName(node) {
 }
 
 function _syncNodeTitleToVarName(node) {
-  try {
-    if (!node) return;
-    const v = _readNodeVarName(node);
-    if (!v) return;
-    // const base = (node.type === "Setter" || node.title === "Setter") ? "Setter" : ((node.type === "Getter" || node.title === "Getter") ? "Getter" : (node.title || ""));
-    // const newTitle = base ? (base + ": " + v) : v;
-    let prefix = "";
-    if (node.type === "Setter") prefix = "🔽 ";
-    else if (node.type === "Getter") prefix = "🔼 ";
-    const newTitle = prefix + v;
-    if (node.title !== newTitle) {
-      node.title = newTitle;
-      try {
-        if (typeof node.setSize === "function" && typeof node.computeSize === "function") {
-          const sz = node.computeSize();
-          if (sz && sz[0] && sz[1]) node.setSize(sz);
-        }
-      } catch (_) { }
-      try {
-        if (globalThis.app?.graph?.setDirtyCanvas) globalThis.app.graph.setDirtyCanvas(true, true);
-        if (globalThis.app?.canvas?.setDirty) globalThis.app.canvas.setDirty(true, true);
-      } catch (_) { }
-    }
-  } catch (_) { }
+  const v = _readNodeVarName(node);
+  if (!v) return;
+  let prefix = "";
+  if (_isSetterNode(node)) prefix = "🔽 "; else if (_isGetterNode(node)) prefix = "🔼 ";
+  const newTitle = prefix + v;
+  if (node.title !== newTitle) { node.title = newTitle; }
 }
 
-function _colorizeSetterGetterNodes() {
-  try {
-    const g = globalThis.app?.graph;
-    if (!g || !Array.isArray(g._nodes)) return;
-
-    for (const node of g._nodes) {
-      if (!node) continue;
-
-      if (node.type === "Setter") {
-        node.color = "#333355";       // blue
-        node.bgcolor = "#222233";
-      } else if (node.type === "Getter") {
-        node.color = "#335533";       // green
-        node.bgcolor = "#223322";
-      }
-    }
-
-    try {
-      if (g.setDirtyCanvas) g.setDirtyCanvas(true, true);
-      if (globalThis.app?.canvas?.setDirty) globalThis.app.canvas.setDirty(true, true);
-    } catch (_) { }
-  } catch (_) { }
+function _colorizeSetterGetterNodes(node, type = "Setter") {
+  if (type === "Setter") {
+    node.color = "#333355";       // blue
+    node.bgcolor = "#222233";
+  } else {
+    node.color = "#335533";       // green
+    node.bgcolor = "#223322";
+  }
 }
 
 
@@ -176,10 +118,57 @@ function keyOf(names) {
   return names.join("\u0001");
 }
 
+function ensureVarNameWidget(node, vals) {
+  if (!node) return null;
+
+  const values = Array.isArray(vals) ? vals : [];
+  let w = getWidget(node, "var_name");
+
+  if (!w || w.type !== "combo") {
+    if (node.widgets?.length) {
+      node.widgets = node.widgets.filter(x => !(x && x.name === "var_name"));
+    }
+
+    const curProp = (typeof node.properties?.var_name === "string") ? node.properties.var_name : "";
+    const initial = curProp || (values.length ? values[0] : "");
+
+    w = node.addWidget(
+      "combo",
+      "var_name",
+      initial,
+      (v) => {
+        try { node.properties = node.properties || {}; node.properties.var_name = v; } catch (_) { }
+        try { ensureGetterLinkedToSetter(node); } catch (_) { }
+      },
+      { values }
+    );
+
+    w._akVarInjected = true;
+
+    try { node.properties = node.properties || {}; node.properties.var_name = w.value; } catch (_) { }
+  }
+
+  w.options = w.options || {};
+  w.options.values = values;
+
+  // восстановить выбранное
+  try {
+    const saved = (typeof node.properties?.var_name === "string") ? node.properties.var_name.trim() : "";
+    if (saved && w.value !== saved) w.value = saved;
+    if (!saved && !w.value && values.length) w.value = values[0];
+    node.properties = node.properties || {};
+    node.properties.var_name = w.value;
+  } catch (_) { }
+
+  return w;
+}
+
+
 function applyNamesToNode(node, names) {
   _akCount("applyNamesToNode", 200);
   if (node._akApplyNamesBusy) return;
   node._akApplyNamesBusy = true;
+  console.log("[AK] applyNamesToNode", node?.id, names);
   try {
 
     if (!node) return;
@@ -198,6 +187,7 @@ function applyNamesToNode(node, names) {
       return;
     }
 
+    // console.log("[AK] applyNamesToNode: updating combo for node", node.id, "prevKey:", prevKey, "newKey:", newKey, "prevSel:", prevSel, "curSel:", curSel0);
 
     // If dropdown is created before setters are hooked, values can be empty on first paint.
     // Request a combo refresh once (async) without creating a sync recursion loop.
@@ -206,44 +196,45 @@ function applyNamesToNode(node, names) {
       globalThis._akVarNamesRefreshQueued = true;
       // try { setTimeout(() => { try { updateCombos(app.graph, true); } catch (_) { } }, 0); } catch (_) { }
       // try { setTimeout(() => { try { updateCombos(app.graph, true); } catch (_) { } }, 100); } catch (_) { }
-      try { setTimeout(() => { try { scheduleUpdateCombos(true); } catch (_) { }}, 100); } catch (_) { }
+      // try { setTimeout(() => { try { scheduleUpdateCombos(true); } catch (_) { } }, 100); } catch (_) { }
     }
     // We keep var_name as hidden STRING in Python, so we must render dropdown in JS.
     let w = getWidget(node, "var_name");
 
-    if (!w || w.type !== "combo") {
-      try {
-        if (node.widgets && node.widgets.length) {
-          node.widgets = node.widgets.filter(x => !(x && x.name === "var_name"));
-        }
+    // if (!w || w.type !== "combo") {
+    //   console.log("[AK] applyNamesToNode: injecting combo widget for node", node.id);
+    //   try {
+    //     if (node.widgets && node.widgets.length) {
+    //       node.widgets = node.widgets.filter(x => !(x && x.name === "var_name"));
+    //     }
 
-        const curProp = (typeof node.properties?.var_name === "string") ? node.properties.var_name : "";
-        const initial = curProp || (vals.length ? vals[0] : "");
+    //     const curProp = (typeof node.properties?.var_name === "string") ? node.properties.var_name : "";
+    //     const initial = curProp || (vals.length ? vals[0] : "");
 
-        w = node.addWidget(
-          "combo",
-          "var_name",
-          initial,
-          function (v) {
-            try {
-              if (!node.properties) node.properties = {};
-              node.properties.var_name = v;
-            } catch (_) { }
-            try { ensureGetterLinkedToSetter(node); } catch (_) { }
-          },
-          { values: vals }
-        );
+    //     w = node.addWidget(
+    //       "combo",
+    //       "var_name",
+    //       initial,
+    //       function (v) {
+    //         try {
+    //           if (!node.properties) node.properties = {};
+    //           node.properties.var_name = v;
+    //         } catch (_) { }
+    //         // try { ensureGetterLinkedToSetter(node); } catch (_) { }
+    //       },
+    //       { values: vals }
+    //     );
 
-        w._akVarInjected = true;
+    //     w._akVarInjected = true;
 
-        try {
-          if (!node.properties) node.properties = {};
-          node.properties.var_name = w.value;
-        } catch (_) { }
-      } catch (_) {
-        return;
-      }
-    }
+    //     try {
+    //       if (!node.properties) node.properties = {};
+    //       node.properties.var_name = w.value;
+    //     } catch (_) { }
+    //   } catch (_) {
+    //     return;
+    //   }
+    // }
 
     if (!w.options) w.options = {};
     w.options.values = vals;
@@ -299,9 +290,7 @@ function applyNamesToNode(node, names) {
 
     try { _updateGetterOutputName(node); } catch (_) { }
     try { ensureGetterLinkedToSetter(node); } catch (_) { }
-    try { _syncNodeTitleToVarName(node); } catch (_) { }
-    try { _colorizeSetterGetterNodes(node); } catch (_) { }
-    // app.canvas?.setDirty(true, true);
+    // try { _syncNodeTitleToVarName(node); } catch (_) { }
   } finally {
     node._akApplyNamesBusy = false;
   }
@@ -322,40 +311,55 @@ function updateCombos(graph, force = false) {
     if (!n) continue;
     if (n.type !== "Getter" && n.type !== "Overrider") continue;
     applyNamesToNode(n, names);
+    ensureVarNameWidget(n, names);
   }
 
   app.canvas?.setDirty(true, true);
 }
 
-function hookSetter(node) {
-  if (!node || node._akVarSetterHooked) return;
-  node._akVarSetterHooked = true;
+function hookSetter(node, context = "") {
+  // if (!node || node._akVarSetterHooked) return;
+  // node._akVarSetterHooked = true;
 
+  console.log("[AK] hookSetter", node.id, context);
   _disableVarNameInputConnections(node);
 
   const w = getWidget(node, "var_name");
-  if (!w || w._akVarHooked) return;
+  // if (!w || w._akVarHooked) return;
   w._akVarHooked = true;
 
   w._akPrev = (typeof w.value === "string") ? w.value : "";
 
-  try { _syncNodeTitleToVarName(node); } catch (_) { }
-  try { _colorizeSetterGetterNodes(node); } catch (_) { }
+  console.log("[AK] hookSetter previous value", w._akPrev);
+
+  // try { _syncNodeTitleToVarName(node); } catch (_) { }
 
   const prevCb = w.callback;
   w.callback = function (v) {
+    console.log("[AK] Setter var_name changed:", v);
+    // w._akPrev = (typeof w.value === "string") ? w.value : "";
+
     const r = prevCb ? prevCb.call(this, v) : undefined;
 
     const nv = (typeof w.value === "string") ? w.value : "";
     if (nv !== w._akPrev) {
       const ov = w._akPrev;
+      console.log("[AK] Setter var_name old/new:", ov, "=>", nv);
       w._akPrev = nv;
+      // const token = _setChangedName(ov, nv, node.id);
+      const sid = (typeof node.id === "number" && node.id >= 0) ? node.id : null;
+      // const token = (sid != null) ? _setChangedName(ov, nv, sid) : null;
       const token = _setChangedName(ov, nv, node.id);
+
       // try { updateCombos(app.graph, true); } catch (_) { }
-      try { scheduleUpdateCombos(true); } catch (_) { }
+
+      // try { scheduleUpdateCombos(true); } catch (_) { }
+      try { updateCombos(app.graph, true); } catch (_) { }
       try { _syncNodeTitleToVarName(node); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node); } catch (_) { }
-      _clearChangedNameLater(token);
+      // try { _colorizeSetterGetterNodes(node); } catch (_) { }
+      // if (token) _clearChangedNameLater(token);
+      // _clearChangedNameLater(token);
+      // try { applyNamesToNode(node, _lastNames); } catch (_) { }
     }
 
     return r;
@@ -364,8 +368,8 @@ function hookSetter(node) {
 
 function _disableVarNameInputConnections(node) {
   try {
-    if (!node || node.type !== "Setter") return;
     if (node._akVarVarNameTypePatched) return;
+    if (!_isSetterNode(node)) return;
     node._akVarVarNameTypePatched = true;
 
     const inIdx = _findSlotIndexByName(node.inputs, "var_name");
@@ -376,25 +380,19 @@ function _disableVarNameInputConnections(node) {
 
     inp.type = "__AK_VAR_NAME__";
 
-    if (inp.link != null) node.disconnectInput(inIdx);
+    // if (inp.link != null) node.disconnectInput(inIdx);
   } catch (_) { }
 }
 
 
-function initGetterOverrider(node) {
+function initGetter(node) {
   if (!node || node._akVarComboInit) return;
   node._akVarComboInit = true;
   try { applyNamesToNode(node, _lastNames); } catch (_) { }
 }
 
-function _findSlotIndexByName(arr, name) {
-  if (!arr) return -1;
-  for (let i = 0; i < arr.length; i++) {
-    const s = arr[i];
-    if (s && s.name === name) return i;
-  }
-  return -1;
-}
+const _findSlotIndexByName = (arr, name) =>
+  arr?.findIndex(s => s?.name === name) ?? -1;
 
 function _trimStr(v) {
   return (typeof v === "string") ? v.trim() : "";
@@ -434,9 +432,11 @@ function _updateGetterOutputName(getterNode) {
 }
 
 function _applyChangedNameIfNeeded(getterNode) {
+  console.log("[AK] _applyChangedNameIfNeeded for node", getterNode?.id);
   const ch = _akVarChangedName;
   if (!ch) return false;
   if (!getterNode || getterNode.type !== "Getter") return false;
+  console.log("[AK] _applyChangedNameIfNeeded for node 1", getterNode.id, ch);
 
   const g = app.graph;
   if (!g) return false;
@@ -444,25 +444,34 @@ function _applyChangedNameIfNeeded(getterNode) {
   const inpIdx = _findSlotIndexByName(getterNode.inputs, "inp");
   if (inpIdx < 0) return false;
 
+  console.log("[AK] _applyChangedNameIfNeeded for node 2");
   const linkId = getterNode.inputs?.[inpIdx]?.link;
   if (linkId == null || !g.links || !g.links[linkId]) return false;
+  console.log("[AK] _applyChangedNameIfNeeded for node 2.1");
 
   const l = g.links[linkId];
+  console.log("[AK] _applyChangedNameIfNeeded for node 2.2", l.origin_id, ch.setter_id);
   if (l.origin_id !== ch.setter_id) return false;
 
   const cur = _trimStr((typeof getterNode.properties?.var_name === "string") ? getterNode.properties.var_name : (getWidget(getterNode, "var_name")?.value));
   if (!cur || cur !== ch.old) return false;
+  console.log("[AK] _applyChangedNameIfNeeded for node 3");
 
   try {
     const w = getWidget(getterNode, "var_name");
     if (w) w.value = ch.new;
+    try { w.callback?.(ch.new); } catch (_) { }
   } catch (_) { }
+  console.log("[AK] _applyChangedNameIfNeeded for node 4");
 
   try {
     if (!getterNode.properties) getterNode.properties = {};
     getterNode.properties.var_name = ch.new;
-  } catch (_) { }
+    try { app.graph?.change?.(); } catch (_) { }
+    try { app.graph?.setDirtyCanvas?.(true, true); } catch (_) { }
 
+  } catch (_) { }
+  // try { _clearChangedNameLater(ch); } catch (_) { }
   return true;
 }
 
@@ -496,6 +505,7 @@ function _installHideLinksPatch() {
   if (!CanvasProto) return;
 
   function _isHiddenLink(graph, linkId) {
+    // return false; // DISABLED FOR NOW
     const l = graph?.links?.[linkId];
     if (!l) return false;
 
@@ -614,11 +624,9 @@ function _installHideSocketsPatch() {
 
 
 function ensureGetterLinkedToSetter(node) {
+  console.log("[AK] ensureGetterLinkedToSetter", node.id);
   try {
-    // _installHideLinksPatch();
-    // _installHideSocketsPatch();
-
-    if (!node || node.type !== "Getter") return;
+    if (!_isGetterNode(node)) return;
 
     const g = app.graph;
     if (!g) return;
@@ -641,8 +649,6 @@ function ensureGetterLinkedToSetter(node) {
       const fromNode = g.getNodeById(l.origin_id);
       if (fromNode && fromNode.id === setter.id && l.origin_slot === outIdx) {
         _hideLinkInGraph(g, existingLinkId);
-        // _installHideLinksPatch();
-        // app.canvas?.setDirty(true, true);
         return;
       }
     }
@@ -660,98 +666,105 @@ function ensureGetterLinkedToSetter(node) {
     const linkId = node.inputs[inIdx]?.link ?? null;
 
     _hideLinkInGraph(g, linkId);
-    //  _installHideLinksPatch();
-
-    // app.canvas?.setDirty(true, true);
   } catch (_) { }
 }
 
-function hookGetter(node) {
-  if (!node || node._akVarGetterHooked) return;
-  node._akVarGetterHooked = true;
+function hookGetter(node, context = "") {
+
+  console.log("[AK] hookGetter", node.id, context);
+  // if (!node || node._akVarGetterHooked) return;
+  if (node) {
+    node._akVarGetterHooked = true;
+  }
 
   // Ensure dropdown exists (hidden var_name in backend)
-  try { applyNamesToNode(node, _lastNames); } catch (_) { }
 
   const w = getWidget(node, "var_name");
-  if (!w || w._akVarGetterWidgetHooked) return;
-  w._akVarGetterWidgetHooked = true;
 
-  const prevCb = w.callback;
-  w.callback = function (v) {
-    const r = prevCb ? prevCb.call(this, v) : undefined;
-    try {
-      if (!node.properties) node.properties = {};
-      node.properties.var_name = w.value;
-    } catch (_) { }
-    try { ensureGetterLinkedToSetter(node); } catch (_) { }
-    try { _updateGetterOutputName(node); } catch (_) { }
-    try { _syncNodeTitleToVarName(node); } catch (_) { }
-    try { _colorizeSetterGetterNodes(node); } catch (_) { }
-    return r;
-  };
+  console.log("[AK] hookGetter got widget", w);
+  // if (!w || w._akVarGetterWidgetHooked) return;
+  if (w) {
+    console.log("[AK] hookGetter hooking widget", node.id);
+    w._akVarGetterWidgetHooked = true;
+    const prevCb = w.callback;
+    w.callback = function (v) {
+      const r = prevCb ? prevCb.call(this, v) : undefined;
+      try {
+        if (!node.properties) node.properties = {};
+        node.properties.var_name = w.value;
+      } catch (_) { }
+      try { applyNamesToNode(node, _lastNames); } catch (_) { }
+      try { ensureGetterLinkedToSetter(node); } catch (_) { }
+      // try { _updateGetterOutputName(node); } catch (_) { }
+      try { _syncNodeTitleToVarName(node); } catch (_) { }
+      // try { _colorizeSetterGetterNodes(node); } catch (_) { }
+      return r;
+    };
+  }
+
 }
 
 app.registerExtension({
   name: "AK.VarNodes.ComboSync",
 
   async nodeCreated(node) {
+    console.log("[AK] async nodeCreated(node)");
     if (!node) return;
 
-    if (node.type === "Setter") {
-      _installHideSocketsPatch();
-      hookSetter(node);
-      try { _syncNodeTitleToVarName(node); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node); } catch (_) { }
+    if (_isSetterNode(node)) {
+      console.log("[AK] async nodeCreated(node) SETTER");
+      try { hookSetter(node, "nodeCreated"); } catch (_) { }
+      try { scheduleUpdateCombos(true); } catch (_) { }
+      try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
+      // _installHideSocketsPatch();
+      // try { _syncNodeTitleToVarName(node); } catch (_) { }
+      // try { _colorizeSetterGetterNodes(node); } catch (_) { }
       // try { updateCombos(app.graph, false); } catch (_) { }
-      try { scheduleUpdateCombos(true); } catch (_) { }
-      return;
+
+      // try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
     }
 
-    if (node.type === "Getter") {
-      initGetterOverrider(node);
-      hookGetter(node);
-      try { ensureGetterLinkedToSetter(node); } catch (_) { }
-      try { _syncNodeTitleToVarName(node); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node); } catch (_) { }
+    if (_isGetterNode(node)) {
+      console.log("[AK] async nodeCreated(node) GETTER");
+      try { initGetter(node); } catch (_) { }
+      try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
+      try { hookGetter(node, "nodeCreated"); } catch (_) { }
+      // try { ensureGetterLinkedToSetter(node); } catch (_) { }
+      // try { _syncNodeTitleToVarName(node); } catch (_) { }
       // try { updateCombos(app.graph); } catch (_) { }
-      try { scheduleUpdateCombos(true); } catch (_) { }
+      // try { scheduleUpdateCombos(true); } catch (_) { }
+
     }
 
-    // Ensure injected widgets appear immediately on add/recreate
-    try {
+  },
+
+  async afterConfigureGraph() {
+    console.log("[AK] async afterConfigureGraph()");
+    const nodes = app.graph?._nodes || [];
+    const names = collectSetterNames(app.graph);
+
+    for (const node of nodes) {
       if (_isSetterNode(node)) {
-        // setTimeout(() => { try { hookSetter(node); } catch (_) { } try { updateCombos(app.graph, true); } catch (_) { } }, 0);
-        // setTimeout(() => { try { hookSetter(node); } catch (_) { } try { updateCombos(app.graph, true); } catch (_) { } }, 120);
-        setTimeout(() => { try { hookSetter(node); } catch (_) { } try { scheduleUpdateCombos(true); } catch (_) { } }, 120);
+
+        console.log("[AK] afterConfigureGraph() SETTER", node.id);
+
+        hookSetter(node, "afterConfigureGraph");
+        try { _installHideSocketsPatch(); } catch (_) { }
+        try { _syncNodeTitleToVarName(node); } catch (_) { }
+        try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
       }
+
       if (_isGetterNode(node)) {
-        // setTimeout(() => { try { updateCombos(app.graph, true); } catch (_) { } try { initGetterOverrider(node); } catch (_) { } try { hookGetter(node); } catch (_) { } try { ensureGetterLinkedToSetter(node); } catch (_) { } }, 0);
-        // setTimeout(() => { try { updateCombos(app.graph, true); } catch (_) { } try { initGetterOverrider(node); } catch (_) { } try { hookGetter(node); } catch (_) { } try { ensureGetterLinkedToSetter(node); } catch (_) { } }, 180);
-        setTimeout(() => { try { scheduleUpdateCombos(true); } catch (_) { } try { initGetterOverrider(node); } catch (_) { } try { hookGetter(node); } catch (_) { } try { ensureGetterLinkedToSetter(node); } catch (_) { } }, 180);
+        ensureVarNameWidget(node, names);
+        initGetter(node);
+        hookGetter(node, "afterConfigureGraph");
+        try { ensureGetterLinkedToSetter(node); } catch (_) { }
+        try { _syncNodeTitleToVarName(node); } catch (_) { }
+        try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
       }
-    } catch (_) { }
-  },
-
-  async loadedGraphNode(node) {
-    if (!node) return;
-    if (node.type === "Setter") {
-      _installHideSocketsPatch();
-      hookSetter(node);
-      try { _syncNodeTitleToVarName(node); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node); } catch (_) { }
     }
-    if (node.type === "Getter") initGetterOverrider(node);
-    if (node.type === "Getter") {
-      hookGetter(node);
-      try { ensureGetterLinkedToSetter(node); } catch (_) { }
-      try { _updateGetterOutputName(node); } catch (_) { }
-      try { _syncNodeTitleToVarName(node); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node); } catch (_) { }
-    }
-  },
+    scheduleUpdateCombos(true);
 
-
-
+  }
 
 });

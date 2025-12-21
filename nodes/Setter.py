@@ -77,6 +77,7 @@ def _rebuild_from_prompt(st, prompt):
         st.names_sorted.clear()
 
 class Setter:
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
