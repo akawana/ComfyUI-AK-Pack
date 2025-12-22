@@ -15,7 +15,6 @@ let _akVarChangedName = null;
 
 function _setChangedName(oldName, newName, setterId) {
   _akVarChangedName = { old: oldName || "", new: newName || "", setter_id: setterId, t: Date.now() };
-  console.log("[AK] _setChangedName:", _akVarChangedName);
   return _akVarChangedName;
 }
 
@@ -168,7 +167,6 @@ function applyNamesToNode(node, names) {
   _akCount("applyNamesToNode", 200);
   if (node._akApplyNamesBusy) return;
   node._akApplyNamesBusy = true;
-  console.log("[AK] applyNamesToNode", node?.id, names);
   try {
 
     if (!node) return;
@@ -314,14 +312,13 @@ function updateCombos(graph, force = false) {
     ensureVarNameWidget(n, names);
   }
 
-  app.canvas?.setDirty(true, true);
+  // app.canvas?.setDirty(true, true);
 }
 
 function hookSetter(node, context = "") {
   // if (!node || node._akVarSetterHooked) return;
   // node._akVarSetterHooked = true;
 
-  console.log("[AK] hookSetter", node.id, context);
   _disableVarNameInputConnections(node);
 
   const w = getWidget(node, "var_name");
@@ -330,13 +327,11 @@ function hookSetter(node, context = "") {
 
   w._akPrev = (typeof w.value === "string") ? w.value : "";
 
-  console.log("[AK] hookSetter previous value", w._akPrev);
 
   // try { _syncNodeTitleToVarName(node); } catch (_) { }
 
   const prevCb = w.callback;
   w.callback = function (v) {
-    console.log("[AK] Setter var_name changed:", v);
     // w._akPrev = (typeof w.value === "string") ? w.value : "";
 
     const r = prevCb ? prevCb.call(this, v) : undefined;
@@ -344,7 +339,6 @@ function hookSetter(node, context = "") {
     const nv = (typeof w.value === "string") ? w.value : "";
     if (nv !== w._akPrev) {
       const ov = w._akPrev;
-      console.log("[AK] Setter var_name old/new:", ov, "=>", nv);
       w._akPrev = nv;
       // const token = _setChangedName(ov, nv, node.id);
       const sid = (typeof node.id === "number" && node.id >= 0) ? node.id : null;
@@ -425,18 +419,16 @@ function _updateGetterOutputName(getterNode) {
     }
   } catch (_) { }
 
-  try {
-    if (globalThis.app?.graph?.setDirtyCanvas) globalThis.app.graph.setDirtyCanvas(true, true);
-    if (globalThis.app?.canvas?.setDirty) globalThis.app.canvas.setDirty(true, true);
-  } catch (_) { }
+  // try {
+  //   if (globalThis.app?.graph?.setDirtyCanvas) globalThis.app.graph.setDirtyCanvas(true, true);
+  //   if (globalThis.app?.canvas?.setDirty) globalThis.app.canvas.setDirty(true, true);
+  // } catch (_) { }
 }
 
 function _applyChangedNameIfNeeded(getterNode) {
-  console.log("[AK] _applyChangedNameIfNeeded for node", getterNode?.id);
   const ch = _akVarChangedName;
   if (!ch) return false;
   if (!getterNode || getterNode.type !== "Getter") return false;
-  console.log("[AK] _applyChangedNameIfNeeded for node 1", getterNode.id, ch);
 
   const g = app.graph;
   if (!g) return false;
@@ -444,25 +436,20 @@ function _applyChangedNameIfNeeded(getterNode) {
   const inpIdx = _findSlotIndexByName(getterNode.inputs, "inp");
   if (inpIdx < 0) return false;
 
-  console.log("[AK] _applyChangedNameIfNeeded for node 2");
   const linkId = getterNode.inputs?.[inpIdx]?.link;
   if (linkId == null || !g.links || !g.links[linkId]) return false;
-  console.log("[AK] _applyChangedNameIfNeeded for node 2.1");
 
   const l = g.links[linkId];
-  console.log("[AK] _applyChangedNameIfNeeded for node 2.2", l.origin_id, ch.setter_id);
   if (l.origin_id !== ch.setter_id) return false;
 
   const cur = _trimStr((typeof getterNode.properties?.var_name === "string") ? getterNode.properties.var_name : (getWidget(getterNode, "var_name")?.value));
   if (!cur || cur !== ch.old) return false;
-  console.log("[AK] _applyChangedNameIfNeeded for node 3");
 
   try {
     const w = getWidget(getterNode, "var_name");
     if (w) w.value = ch.new;
     try { w.callback?.(ch.new); } catch (_) { }
   } catch (_) { }
-  console.log("[AK] _applyChangedNameIfNeeded for node 4");
 
   try {
     if (!getterNode.properties) getterNode.properties = {};
@@ -498,23 +485,25 @@ function _hideLinkInGraph(graph, linkId) {
 let _akLinksHideInstalled = false;
 
 function _installHideLinksPatch() {
-  if (_akLinksHideInstalled) return;
-  _akLinksHideInstalled = true;
 
-  const CanvasProto = globalThis.LGraphCanvas && globalThis.LGraphCanvas.prototype;
+  // if (_akLinksHideInstalled) return;
+
+  const CanvasProto =
+    (globalThis.LGraphCanvas && globalThis.LGraphCanvas.prototype) ||
+    (globalThis.LiteGraph && globalThis.LiteGraph.LGraphCanvas && globalThis.LiteGraph.LGraphCanvas.prototype);
+
   if (!CanvasProto) return;
 
-  function _isHiddenLink(graph, linkId) {
-    // return false; // DISABLED FOR NOW
+  _akLinksHideInstalled = true;
+
+  function _isHiddenLink(graph, linkId, getterNodeId) {
     const l = graph?.links?.[linkId];
     if (!l) return false;
-
     const a = graph.getNodeById(l.origin_id);
-    const b = graph.getNodeById(l.target_id);
+    const b = graph.getNodeById(getterNodeId); // Because there is no target_id when we just create node.
     if (!a || !b) return false;
-
-    if (a.type !== "Setter" || b.type !== "Getter") return false;
-
+    if (!_isSetterNode(a) || !_isGetterNode(b)) return false;
+    l.target_id = getterNodeId;
     const outName = a.outputs?.[l.origin_slot]?.name;
     const inName = b.inputs?.[l.target_slot]?.name;
     return outName === "OUT" && inName === "inp";
@@ -526,22 +515,20 @@ function _installHideLinksPatch() {
 
     const nodes = g._nodes || [];
     const saved = [];
-
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
-      if (!n || n.type !== "Getter") continue;
+      if (!n || !_isGetterNode(n)) continue;
       const inputs = n.inputs || [];
-      for (let j = 0; j < inputs.length; j++) {
-        const inp = inputs[j];
+      // for (let j = 0; j < inputs.length; j++) {
+        const inp = inputs[0];
         if (!inp || inp.name !== "inp") continue;
         const linkId = inp.link;
         if (linkId == null) continue;
-
-        if (_isHiddenLink(g, linkId)) {
-          saved.push([n, j, linkId]);
+        if (_isHiddenLink(g, linkId, n.id)) {
+          saved.push([n, 0, linkId]);
           inp.link = null;
         }
-      }
+      // }
     }
 
     const r = fn();
@@ -568,6 +555,7 @@ function _installHideLinksPatch() {
 
 function _installHideSocketsPatch() {
   _akCount("_installHideSocketsPatch", 2000);
+
   const CanvasProto =
     (globalThis.LGraphCanvas && globalThis.LGraphCanvas.prototype) ||
     (globalThis.LiteGraph && globalThis.LiteGraph.LGraphCanvas && globalThis.LiteGraph.LGraphCanvas.prototype);
@@ -584,12 +572,6 @@ function _installHideSocketsPatch() {
     setTimeout(_installHideSocketsPatch, 50);
     return;
   }
-
-  /*   if (!CanvasProto) {
-      setTimeout(_installHideSocketsPatch, 0);
-      return;
-    }
-   */
   if (CanvasProto._akHideSocketsDrawNodePatched) return;
 
   const origDrawNode = CanvasProto.drawNode;
@@ -619,12 +601,10 @@ function _installHideSocketsPatch() {
     }
   };
   try { _installHideLinksPatch(); } catch (_) { }
-  console.log("[AK] HideSockets: drawNode patched");
 }
 
 
 function ensureGetterLinkedToSetter(node) {
-  console.log("[AK] ensureGetterLinkedToSetter", node.id);
   try {
     if (!_isGetterNode(node)) return;
 
@@ -671,7 +651,6 @@ function ensureGetterLinkedToSetter(node) {
 
 function hookGetter(node, context = "") {
 
-  console.log("[AK] hookGetter", node.id, context);
   // if (!node || node._akVarGetterHooked) return;
   if (node) {
     node._akVarGetterHooked = true;
@@ -681,10 +660,8 @@ function hookGetter(node, context = "") {
 
   const w = getWidget(node, "var_name");
 
-  console.log("[AK] hookGetter got widget", w);
   // if (!w || w._akVarGetterWidgetHooked) return;
   if (w) {
-    console.log("[AK] hookGetter hooking widget", node.id);
     w._akVarGetterWidgetHooked = true;
     const prevCb = w.callback;
     w.callback = function (v) {
@@ -708,11 +685,9 @@ app.registerExtension({
   name: "AK.VarNodes.ComboSync",
 
   async nodeCreated(node) {
-    console.log("[AK] async nodeCreated(node)");
     if (!node) return;
 
     if (_isSetterNode(node)) {
-      console.log("[AK] async nodeCreated(node) SETTER");
       try { hookSetter(node, "nodeCreated"); } catch (_) { }
       try { scheduleUpdateCombos(true); } catch (_) { }
       try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
@@ -725,33 +700,36 @@ app.registerExtension({
     }
 
     if (_isGetterNode(node)) {
-      console.log("[AK] async nodeCreated(node) GETTER");
+      const names = collectSetterNames(app.graph);
+      ensureVarNameWidget(node, names);
       try { initGetter(node); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
       try { hookGetter(node, "nodeCreated"); } catch (_) { }
-      // try { ensureGetterLinkedToSetter(node); } catch (_) { }
+      try { _syncNodeTitleToVarName(node); } catch (_) { }
+      try { ensureGetterLinkedToSetter(node); } catch (_) { }
+      try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
+      // try { _installHideSocketsPatch(); } catch (_) { }
       // try { _syncNodeTitleToVarName(node); } catch (_) { }
       // try { updateCombos(app.graph); } catch (_) { }
       // try { scheduleUpdateCombos(true); } catch (_) { }
 
     }
+    // try { _installHideLinksPatch(); } catch (_) { }
 
   },
 
   async afterConfigureGraph() {
-    console.log("[AK] async afterConfigureGraph()");
     const nodes = app.graph?._nodes || [];
     const names = collectSetterNames(app.graph);
 
     for (const node of nodes) {
       if (_isSetterNode(node)) {
 
-        console.log("[AK] afterConfigureGraph() SETTER", node.id);
-
         hookSetter(node, "afterConfigureGraph");
-        try { _installHideSocketsPatch(); } catch (_) { }
+        // try { _installHideSocketsPatch(); } catch (_) { }
         try { _syncNodeTitleToVarName(node); } catch (_) { }
         try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
+        try { _installHideSocketsPatch(); } catch (_) { }
+
       }
 
       if (_isGetterNode(node)) {
@@ -761,6 +739,7 @@ app.registerExtension({
         try { ensureGetterLinkedToSetter(node); } catch (_) { }
         try { _syncNodeTitleToVarName(node); } catch (_) { }
         try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
+        try { _installHideSocketsPatch(); } catch (_) { }
       }
     }
     scheduleUpdateCombos(true);
