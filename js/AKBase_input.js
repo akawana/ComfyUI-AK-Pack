@@ -132,11 +132,10 @@ export function installInputHandlers(node) {
       }
 
 
-      try {
-        targetNode.setDirtyCanvas?.(true, true);
-      } catch (_) { }
+      // try {
+      //   targetNode.setDirtyCanvas?.(true, true);
+      // } catch (_) { }
 
-      app.graph.setDirtyCanvas(true, true);
       console.log("[AKBase] canvas marked dirty, done");
     } catch (e) {
       console.log("[AKBase] setConnectedNodeValue exception:", e);
@@ -261,7 +260,7 @@ export function installInputHandlers(node) {
     state.cursorX = 0.5;
 
     node?._akBase?.updateBackBtn?.();
-    app.graph.setDirtyCanvas(true, true);
+    // app.graph.setDirtyCanvas(true, true);
   }
 
   async function copyCompareImageToClipboard() {
@@ -338,13 +337,13 @@ export function installInputHandlers(node) {
       const idx = row * grid.cols + col;
 
       g.hoverIndex = (idx >= 0 && idx < N) ? idx : -1;
-      app.graph.setDirtyCanvas(true, true);
+      // app.graph.setDirtyCanvas(true, true);
       return;
     }
 
     if (r.w > 0) {
       state.cursorX = Math.min(1, Math.max(0, (localX - r.x) / r.w));
-      app.graph.setDirtyCanvas(true, true);
+      // app.graph.setDirtyCanvas(true, true);
     }
   };
 
@@ -424,6 +423,6 @@ export function installInputHandlers(node) {
     state.hover = false;
     state.inPreview = false;
     if (state.mode === "gallery") state.gallery.hoverIndex = -1;
-    app.graph.setDirtyCanvas(true, true);
+    // app.graph.setDirtyCanvas(true, true);
   };
 }

@@ -39,6 +39,7 @@ class AKPipe:
         "IMAGE",
     )
 
+    OUTPUT_NODE = True
     FUNCTION = "run"
     CATEGORY = "AK/pipe"
 

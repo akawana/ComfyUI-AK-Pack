@@ -144,7 +144,7 @@ function installOnNode(node) {
       state.gallery.urls = urls;
       state.gallery.hoverIndex = -1;
 
-      app.graph.setDirtyCanvas(true, true);
+      // app.graph.setDirtyCanvas(true, true);
       return true;
     } catch (_) {
       return false;
@@ -155,7 +155,7 @@ function installOnNode(node) {
   node.onResize = function (size) {
     const r = origOnResize?.call(this, size);
     applyNodeLayout(this);
-    app.graph.setDirtyCanvas(true, true);
+    // app.graph.setDirtyCanvas(true, true);
     return r;
   };
 
@@ -193,6 +193,6 @@ api.addEventListener("executed", async (e) => {
     await loadFromStateFile(node);
   } catch (err) {
     DBG("load error", err);
-    app.graph.setDirtyCanvas(true, true);
+    // app.graph.setDirtyCanvas(true, true);
   }
 });
