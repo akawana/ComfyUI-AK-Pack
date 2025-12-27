@@ -28,7 +28,7 @@ app.registerExtension({
             }
 
             node.setSize(node.computeSize());
-            app.graph.setDirtyCanvas(true, true);
+            // app.graph.setDirtyCanvas(true, true);
         }
 
         nodeType.prototype.onNodeCreated = function () {

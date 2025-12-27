@@ -10,9 +10,42 @@ const AKBASE_VERSION = "v11-statefile";
 window.AKBASE_DEBUG ??= true;
 const DBG = (...a) => { if (window.AKBASE_DEBUG) console.log(`[AKBase ${AKBASE_VERSION}]`, ...a); };
 
+
+function releaseImage(img) {
+  if (!img) return;
+  try {
+    img.onload = null;
+    img.onerror = null;
+    img.src = "";
+    img = null;
+  } catch (_) {
+  }
+}
+
 async function loadCompare(node, stateJson) {
   const state = node._akBase;
   const token = ++state.loadingToken;
+
+  if (state?.a?.img) {
+    releaseImage(state.a.img);
+    state.a.img = null;
+  }
+  if (state?.b?.img) {
+    releaseImage(state.b.img);
+    state.b.img = null;
+  }
+  if (state?.gallery?.images?.length) {
+    for (const img of state.gallery.images) {
+      releaseImage(img);
+    }
+    state.gallery.images = [];
+    state.gallery.urls = [];
+    state.gallery.hoverIndex = -1;
+  }
+  state.a.url = null;
+  state.b.url = null;
+  state.a.loaded = false;
+  state.b.loaded = false;
 
   const nid = node?.id;
   const suffix = (nid !== undefined && nid !== null) ? `_${nid}` : "";
@@ -52,6 +85,27 @@ async function loadCompare(node, stateJson) {
 async function loadGallery(node, stateJson) {
   const state = node._akBase;
   const token = ++state.loadingToken;
+
+  if (state?.a?.img) {
+    releaseImage(state.a.img);
+    state.a.img = null;
+  }
+  if (state?.b?.img) {
+    releaseImage(state.b.img);
+    state.b.img = null;
+  }
+  if (state?.gallery?.images?.length) {
+    for (const img of state.gallery.images) {
+      releaseImage(img);
+    }
+    state.gallery.images = [];
+    state.gallery.urls = [];
+    state.gallery.hoverIndex = -1;
+  }
+  state.a.url = null;
+  state.b.url = null;
+  state.a.loaded = false;
+  state.b.loaded = false;
 
   const count = Math.max(0, Math.min(4096, Number(stateJson?.count ?? 0)));
   const nid = node?.id;
@@ -144,7 +198,7 @@ function installOnNode(node) {
       state.gallery.urls = urls;
       state.gallery.hoverIndex = -1;
 
-      app.graph.setDirtyCanvas(true, true);
+      // app.graph.setDirtyCanvas(true, true);
       return true;
     } catch (_) {
       return false;
@@ -155,7 +209,7 @@ function installOnNode(node) {
   node.onResize = function (size) {
     const r = origOnResize?.call(this, size);
     applyNodeLayout(this);
-    app.graph.setDirtyCanvas(true, true);
+    // app.graph.setDirtyCanvas(true, true);
     return r;
   };
 
@@ -193,6 +247,6 @@ api.addEventListener("executed", async (e) => {
     await loadFromStateFile(node);
   } catch (err) {
     DBG("load error", err);
-    app.graph.setDirtyCanvas(true, true);
+    // app.graph.setDirtyCanvas(true, true);
   }
 });
