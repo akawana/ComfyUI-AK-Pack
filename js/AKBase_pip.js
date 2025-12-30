@@ -232,43 +232,41 @@ function createPipWindow(nodeId) {
       e.clientY >= canvasRect.top &&
       e.clientY <= canvasRect.bottom;
 
-    // If this is a zoom IN and the mouse is NOT over the canvas — ignore
+    // Zoom IN only when the mouse is over the canvas
     if (newZoom > oldZoom && !overCanvas) {
       return;
     }
 
-    // Compute mouse positions (container-local)
+    // Mouse position relative to the dialog (container-local)
     const mouseX = e.clientX - containerRect.left;
     const mouseY = e.clientY - containerRect.top;
 
-    const oldWidth = canvasRect.width || 1;
-    const oldHeight = canvasRect.height || 1;
-
-    const relX = (e.clientX - canvasRect.left) / oldWidth;
-    const relY = (e.clientY - canvasRect.top) / oldHeight;
-
-    // If we are zooming IN — update the anchor
+    // Anchor is stored in dialog coordinates only
     if (newZoom > oldZoom) {
       pipState.lastZoomAnchor = {
         mouseX,
         mouseY,
-        relX,
-        relY
       };
     }
 
-    // If zooming OUT — reuse anchor if available
-    let useMouseX = mouseX;
-    let useMouseY = mouseY;
-    let useRelX = relX;
-    let useRelY = relY;
-
+    // Decide which anchor to use for this wheel step
+    let anchorX = mouseX;
+    let anchorY = mouseY;
     if (newZoom < oldZoom && pipState.lastZoomAnchor) {
-      useMouseX = pipState.lastZoomAnchor.mouseX;
-      useMouseY = pipState.lastZoomAnchor.mouseY;
-      useRelX = pipState.lastZoomAnchor.relX;
-      useRelY = pipState.lastZoomAnchor.relY;
+      anchorX = pipState.lastZoomAnchor.mouseX;
+      anchorY = pipState.lastZoomAnchor.mouseY;
     }
+
+    // Canvas position relative to dialog
+    const oldWidth = canvasRect.width || 1;
+    const oldHeight = canvasRect.height || 1;
+    const canvasLeft = canvasRect.left - containerRect.left;
+    const canvasTop = canvasRect.top - containerRect.top;
+
+    // Relative position of the anchor within the canvas,
+    // computed from dialog-space anchor and current canvas position.
+    const relX = (anchorX - canvasLeft) / oldWidth;
+    const relY = (anchorY - canvasTop) / oldHeight;
 
     pipState.zoom = newZoom;
 
@@ -286,8 +284,9 @@ function createPipWindow(nodeId) {
     const newWidth = baseRect.width || 1;
     const newHeight = baseRect.height || 1;
 
-    const desiredLeft = useMouseX - useRelX * newWidth;
-    const desiredTop = useMouseY - useRelY * newHeight;
+    // Keep the same logical point under the anchor after resize
+    const desiredLeft = anchorX - relX * newWidth;
+    const desiredTop = anchorY - relY * newHeight;
 
     const offsetX = desiredLeft - baseLeft;
     const offsetY = desiredTop - baseTop;
