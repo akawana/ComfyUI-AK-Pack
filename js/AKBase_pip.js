@@ -6,6 +6,8 @@ const PIP_ID = "akbase-pip-window";
 const AKBASE_PIP_MAX_WIDTH_RATIO = 0.9;
 const AKBASE_PIP_MAX_HEIGHT_RATIO = 0.9;
 
+const AKBASE_PIP_MAX_BACKING_WIDTH = 2048;
+const AKBASE_PIP_MAX_BACKING_HEIGHT = 2048;
 
 const AKBASE_PIP_BUTTON_SIZE = 18;
 
@@ -71,7 +73,7 @@ function cleanupPipWindow(container) {
     }
     container._akPipDragCleanup = null;
     container._akPipResizeCleanup = null;
-  } catch (_) { }
+  } catch (_) {}
 }
 
 function destroyPipWindow(container) {
@@ -223,7 +225,7 @@ function createPipWindow(nodeId) {
 
     const oldZoom = pipState.zoom || 1;
     const zoomFactor = e.deltaY < 0 ? 1.1 : 1.0 / 1.1;
-    const newZoom = Math.min(20, Math.max(0.2, oldZoom * zoomFactor));
+    const newZoom = Math.min(25, Math.max(0.2, oldZoom * zoomFactor));
 
     // Determine if pointer is currently over the canvas
     const overCanvas =
@@ -723,7 +725,6 @@ function startPipRenderLoop(container, canvas) {
   function frame() {
     if (!document.body.contains(container)) return;
 
-
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     const logicalWidth = rect.width || (canvas.width / dpr);
@@ -763,8 +764,11 @@ function startPipRenderLoop(container, canvas) {
       }
     }
 
-    // ctx.save();
-    ctx.scale(dpr, dpr);
+    const scaleX = canvas.width / logicalWidth;
+    const scaleY = canvas.height / logicalHeight;
+
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     const zoom = pipState.zoom || 1;
     const offsetX = pipState.offsetX || 0;
@@ -786,17 +790,7 @@ function startPipRenderLoop(container, canvas) {
       }
     }
 
-    ctx.save(); // local save for clipping
-    ctx.beginPath();
-    ctx.rect(
-      0,
-      0,
-      logicalWidth,
-      logicalHeight
-    );
-    ctx.clip();
-
-    if (state && state.mode === "compare" && typeof renderCompare === "function") {
+        if (state && state.mode === "compare" && typeof renderCompare === "function") {
       const view = {
         zoom: 1,
         offsetX: 0,
@@ -844,7 +838,7 @@ function resizeCanvasToWindow(container, canvas, allowZoomResize = false) {
   const zoom = pipState.zoom || 1;
   const isZoomMode = zoom !== 1;
 
-  // In zoom mode, ignore window size changes triggered by container resize.
+  // In zoom mode, ignore window size changes triggered by container resize when not explicitly allowed.
   if (isZoomMode && !allowZoomResize) {
     const currentRect = canvas.getBoundingClientRect();
     const currentW = currentRect.width || (canvas.width / dpr);
@@ -886,18 +880,38 @@ function resizeCanvasToWindow(container, canvas, allowZoomResize = false) {
     container._akPipBaseScale = baseScale;
   }
 
-  // Apply zoom by resizing the canvas itself relative to the base scale.
-  const canvasWidth = Math.max(1, Math.floor(imgW * baseScale * zoom));
-  const canvasHeight = Math.max(1, Math.floor(imgH * baseScale * zoom));
+  // Visual scale controls how large the image appears inside the dialog.
+  const displayScale = baseScale * zoom;
+  const displayWidth = Math.max(1, Math.floor(imgW * displayScale));
+  const displayHeight = Math.max(1, Math.floor(imgH * displayScale));
 
-  container._akPipLastWidth = canvasWidth;
-  container._akPipLastHeight = canvasHeight;
+  // Backing scale controls how many pixels we actually render.
+  let backingScale = displayScale;
 
-  canvas.style.width = `${canvasWidth}px`;
-  canvas.style.height = `${canvasHeight}px`;
+  const maxBackingWidth = AKBASE_PIP_MAX_BACKING_WIDTH;
+  const maxBackingHeight = AKBASE_PIP_MAX_BACKING_HEIGHT;
 
-  canvas.width = Math.max(1, Math.floor(canvasWidth * dpr));
-  canvas.height = Math.max(1, Math.floor(canvasHeight * dpr));
+  const backingWidthCandidate = imgW * backingScale;
+  const backingHeightCandidate = imgH * backingScale;
+
+  if (backingWidthCandidate > maxBackingWidth || backingHeightCandidate > maxBackingHeight) {
+    const widthRatio = maxBackingWidth / backingWidthCandidate;
+    const heightRatio = maxBackingHeight / backingHeightCandidate;
+    const ratio = Math.min(widthRatio, heightRatio);
+    backingScale = backingScale * ratio;
+  }
+
+  const backingWidth = Math.max(1, Math.floor(imgW * backingScale));
+  const backingHeight = Math.max(1, Math.floor(imgH * backingScale));
+
+  container._akPipLastWidth = displayWidth;
+  container._akPipLastHeight = displayHeight;
+
+  canvas.style.width = `${displayWidth}px`;
+  canvas.style.height = `${displayHeight}px`;
+
+  canvas.width = Math.max(1, Math.floor(backingWidth * dpr));
+  canvas.height = Math.max(1, Math.floor(backingHeight * dpr));
 }
 
 
