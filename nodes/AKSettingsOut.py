@@ -4,6 +4,8 @@ import comfy.samplers
 
 
 class AKSettingsOut:
+    _STATE_BY_UID = {}
+
     @classmethod
     def INPUT_TYPES(s):
         required = {
@@ -15,8 +17,8 @@ class AKSettingsOut:
         return {
             "required": required,
             "optional": optional,
-        }
-
+            "hidden": {"unique_id": "UNIQUE_ID"},
+            }
     RETURN_TYPES = (
         "STRING",
         "INT",
@@ -46,8 +48,46 @@ class AKSettingsOut:
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        return float("NaN")
+        uid = kwargs.get("unique_id", None)
+        key = str(uid) if uid is not None else "global"
 
+        prev_state = cls._STATE_BY_UID.get(key, None)
+        prev_hashes = prev_state.get("hashes", [None] * 10) if isinstance(prev_state, dict) else [None] * 10
+
+        inputs = []
+        for i in range(10):
+            inputs.append(kwargs.get(f"ak_settings_{i}", None))
+
+        changed_idx = None
+        last_not_none_hash = None
+        curr_hashes = [None] * 10
+
+        for idx, s in enumerate(inputs):
+            if s is None or not isinstance(s, str) or not s.strip():
+                continue
+            try:
+                data = json.loads(s)
+            except Exception:
+                continue
+            h = data.get("hash", None)
+            if h is None:
+                continue
+            curr_hashes[idx] = h
+            last_not_none_hash = h
+
+            prev = prev_hashes[idx] if idx < len(prev_hashes) else None
+            if prev != h and changed_idx is None:
+                changed_idx = idx
+
+        selected_hash = None
+        if changed_idx is not None:
+            selected_hash = curr_hashes[changed_idx]
+        elif last_not_none_hash is not None:
+            selected_hash = last_not_none_hash
+        else:
+            selected_hash = ""
+
+        return str(selected_hash)
     def __init__(self):
         default_sampler = comfy.samplers.SAMPLER_NAMES[0] if comfy.samplers.SAMPLER_NAMES else ""
         default_scheduler = comfy.samplers.SCHEDULER_NAMES[0] if comfy.samplers.SCHEDULER_NAMES else ""
@@ -114,6 +154,7 @@ class AKSettingsOut:
         ak_settings_7=None,
         ak_settings_8=None,
         ak_settings_9=None,
+        unique_id=None
     ):
         inputs = [
             ak_settings_0,
@@ -131,6 +172,7 @@ class AKSettingsOut:
         changed_idx = None
         changed_values = None
         last_not_none_values = None
+        last_not_none_idx = None
 
         for idx, s in enumerate(inputs):
             if s is None:
@@ -151,6 +193,7 @@ class AKSettingsOut:
 
             values = self._extract_values(data)
             last_not_none_values = values
+            last_not_none_idx = idx
 
             prev = self._hashes[idx]
             if prev != h and changed_idx is None:
@@ -164,9 +207,34 @@ class AKSettingsOut:
         elif last_not_none_values is not None:
             self._last_values = last_not_none_values
 
+        try:
+
+            uid_key = str(unique_id) if unique_id is not None else "global"
+
+            selected_hash = None
+
+            if changed_idx is not None and changed_idx < len(self._hashes):
+
+                selected_hash = self._hashes[changed_idx]
+
+            elif last_not_none_idx is not None and last_not_none_idx < len(self._hashes):
+
+                selected_hash = self._hashes[last_not_none_idx]
+
+            self.__class__._STATE_BY_UID[uid_key] = {
+
+                "hashes": list(self._hashes),
+
+                "last_selected_hash": str(selected_hash) if selected_hash is not None else "",
+
+            }
+
+        except Exception:
+
+            pass
+
+
         return self._last_values
-
-
 NODE_CLASS_MAPPINGS = {
     "AKSettingsOut": AKSettingsOut
 }
