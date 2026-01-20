@@ -14,9 +14,9 @@ function addSpacer(node, afterName) {
 }
 
 app.registerExtension({
-  name: "AKBaseSettings.Spacers",
+  name: "AKSettingsBig.Spacers",
   async beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData?.name !== "AK Base Settings") return;
+    if (nodeData?.name !== "AK Settings Big") return;
 
     const onCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {

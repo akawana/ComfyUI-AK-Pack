@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { previewRect, backButtonRect, copyButtonRect, pipButtonRect } from "./AKBase_ui.js";
-import { fetchTempJson, buildTempViewUrl, loadImageFromUrl, readPngTextChunks } from "./AKBase_io.js";
+import { fetchTempJson, buildTempViewUrl, loadImageFromUrl } from "./AKBase_io.js";
 
 export function installInputHandlers(node) {
   const state = node._akBase;
@@ -79,7 +79,7 @@ export function installInputHandlers(node) {
         return;
       }
 
-      const fn = `ak_base_settings_${nid}.json`;
+      const fn = `ak_settings_${nid}.json`;
       console.log("[AKBase] loading settings json:", fn);
       let cfg = null;
       try {cfg = await fetchTempJson(fn);} catch (e) {
@@ -147,78 +147,47 @@ export function installInputHandlers(node) {
     try {
       const idx = Number(imageNumber);
 
-      const url = state?.gallery?.urls?.[idx] || null;
-      if (url) {
-        const chunks = await readPngTextChunks(url);
+      let seedVal = null;
 
-        let metaObj = null;
-        let seedVal = null;
+      try {
+        const nid = node?.id;
+        if (nid !== undefined && nid !== null) {
+          const cfgFn = `ak_base_xz_config_${nid}.json`;
+          const cfg = await fetchTempJson(cfgFn);
+          const images = cfg?.image;
+          if (Array.isArray(images)) {
+            const it = images[idx];
+            if (it && typeof it === "object") {
+              const xName = String(it?.x_parameter_name_0 ?? "").toLowerCase();
+              const zName = String(it?.z_parameter_name_0 ?? "").toLowerCase();
 
-        for (const c of chunks) {
-          if (!c || !c.key) continue;
-
-          if (c.key === "ak_meta") {
-            try { metaObj = JSON.parse(String(c.val ?? "{}")); } catch (_) { metaObj = null; }
-          }
-
-          if (c.key === "seed") {
-            const v = Number(c.val);
-            if (Number.isFinite(v)) seedVal = v;
-          }
-        }
-
-        if (metaObj && typeof metaObj === "object") {
-          const xName = String(metaObj?.x_parameter_name_0 ?? "").toLowerCase();
-          const zName = String(metaObj?.z_parameter_name_0 ?? "").toLowerCase();
-
-          if (xName === "seed") {
-            const v = Number(metaObj?.x_parameter_value_0);
-            if (Number.isFinite(v)) seedVal = v;
-          } else if (zName === "seed") {
-            const v = Number(metaObj?.z_parameter_value_0);
-            if (Number.isFinite(v)) seedVal = v;
-          } else {
-            const v = Number(metaObj?.seed);
-            if (Number.isFinite(v)) seedVal = v;
+              const isSeed = (xName === "seed") || (zName === "seed");
+              if (isSeed) {
+                const sv = (xName === "seed") ? it?.x_parameter_value_0 : it?.z_parameter_value_0;
+                if (sv !== undefined && sv !== null) {
+                  seedVal = sv;
+                }
+              }
+            }
           }
         }
-
-        if (seedVal !== null && seedVal !== undefined) {
-          console.log("[AKBase] seed extracted from png meta:", seedVal);
-          await setConnectedNodeValue(seedVal);
-          return true;
-        }
+      } catch (e) {
+        console.log("[AKBase] getPropertiesFromImage: xz_config read failed (ignored)", e);
       }
 
-      const nid = node?.id;
-      if (nid === undefined || nid === null) return false;
+      if (seedVal !== null && seedVal !== undefined) {
+        console.log("[AKBase] seed extracted from xz_config:", seedVal);
+        await setConnectedNodeValue(seedVal);
+      }
 
-      const cfgFn = `ak_base_xz_config_${nid}.json`;
-      const cfg = await fetchTempJson(cfgFn);
-      const images = cfg?.image;
-      if (!Array.isArray(images)) return false;
-
-      const it = images[idx];
-      if (!it || typeof it !== "object") return false;
-
-      const xName = String(it?.x_parameter_name_0 ?? "").toLowerCase();
-      const zName = String(it?.z_parameter_name_0 ?? "").toLowerCase();
-
-      const isSeed = (xName === "seed") || (zName === "seed");
-      if (!isSeed) return false;
-
-      const seedVal = (xName === "seed") ? it?.x_parameter_value_0 : it?.z_parameter_value_0;
-      if (seedVal === undefined || seedVal === null) return false;
-
-      console.log("[AKBase] seed extracted:", seedVal);
-      await setConnectedNodeValue(seedVal);
       return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      console.log("[AKBase] getPropertiesFromImage exception (non-fatal):", e);
+      return true;
     }
   }
 
-  async function setPreviewImage(imageNumber) {
+async function setPreviewImage(imageNumber) {
     const g = state.gallery;
     const imgs = g?.images ?? [];
     const idx = Number(imageNumber);

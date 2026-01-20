@@ -1,8 +1,10 @@
+
 import json
+import zlib
 import comfy.samplers
 
 
-class AKBaseSettings:
+class AKSettingsBig:
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -24,9 +26,9 @@ class AKBaseSettings:
         }
 
     RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("ak_base_settings",)
+    RETURN_NAMES = ("ak_settings",)
     FUNCTION = "run"
-    CATEGORY = "AK/_testing_"
+    CATEGORY = "AK/settings"
 
     def run(
         self,
@@ -43,29 +45,36 @@ class AKBaseSettings:
         node_id=None,
     ):
         from_id = str(node_id) if node_id is not None else ""
-        s = json.dumps(
-            {
-                "output_folder": str(output_folder),
-                "width": int(width),
-                "height": int(height),
-                "do_resize": bool(do_resize),
-                "sampler_name": str(sampler_name),
-                "scheduler": str(scheduler),
-                "seed": int(seed),
-                "cfg": float(cfg),
-                "denoise": float(denoise),
-                "xy_variations": int(xy_variations),
-                "from_id": from_id,
-            },
-            ensure_ascii=False,
+        data = {
+            "output_folder": str(output_folder),
+            "width": int(width),
+            "height": int(height),
+            "do_resize": bool(do_resize),
+            "sampler_name": str(sampler_name),
+            "scheduler": str(scheduler),
+            "seed": int(seed),
+            "cfg": float(cfg),
+            "denoise": float(denoise),
+            "xy_variations": int(xy_variations),
+            "from_id": from_id,
+        }
+
+        payload = (
+            f"{data['output_folder']}|{data['width']}|{data['height']}|{int(data['do_resize'])}|"
+            f"{data['sampler_name']}|{data['scheduler']}|{data['seed']}|{data['cfg']}|"
+            f"{data['denoise']}|{data['xy_variations']}|{from_id}"
         )
+        h = zlib.adler32(payload.encode("utf-8")) & 0xFFFFFFFF
+        data["hash"] = int(h)
+
+        s = json.dumps(data, ensure_ascii=False)
         return (s,)
 
 
 NODE_CLASS_MAPPINGS = {
-    "AK Base Settings": AKBaseSettings,
+    "AKSettingsBig": AKSettingsBig,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AK Base Settings": "AK Base Settings",
+    "AKSettingsBig": "AK Settings Big",
 }

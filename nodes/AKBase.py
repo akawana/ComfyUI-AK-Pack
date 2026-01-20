@@ -90,7 +90,7 @@ class AKBase:
             "optional": {
                 "b_image": ("IMAGE",),
                 "xz_config": ("STRING", {"forceInput": True}),
-                "ak_base_settings": ("STRING", {"forceInput": True}),
+                "ak_settings": ("STRING", {"forceInput": True}),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -98,7 +98,7 @@ class AKBase:
         }
 
     RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("ak_base_settings",)
+    RETURN_NAMES = ("ak_settings",)
     FUNCTION = "run"
     CATEGORY = "AK/_testing_"
     OUTPUT_NODE = True
@@ -108,7 +108,7 @@ class AKBase:
         a_image,
         xz_config: str = None,
         b_image=None,
-        ak_base_settings: str = None,
+        ak_settings: str = None,
         unique_id=None,
     ):
         a_n = int(a_image.shape[0]) if hasattr(a_image, "shape") else 1
@@ -119,11 +119,11 @@ class AKBase:
         node_id = unique_id if unique_id is not None else getattr(self, "node_id", None)
         node_id = str(node_id) if node_id is not None else None
         suffix = f"_{node_id}" if node_id is not None else ""
-        if ak_base_settings is not None:
+        if ak_settings is not None:
             try:
-                s = str(ak_base_settings).strip()
+                s = str(ak_settings).strip()
                 if s:
-                    fname = f"ak_base_settings{suffix}.json"
+                    fname = f"ak_settings{suffix}.json"
                     with open(_temp_path(fname), "w", encoding="utf-8") as f:
                         f.write(s)
             except Exception:
