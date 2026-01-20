@@ -9,6 +9,7 @@ class AKReplaceColorWithAlpha:
                 "image": ("IMAGE",),
                 "color_rgb": ("STRING", {"default": "8, 39, 245", "multiline": False}),
                 "threshold": ("INT", {"default": 0, "min": 0, "max": 255, "step": 1}),
+                "softness": ("INT", {"default": 0, "min": 0, "max": 255, "step": 1}),
             }
         }
 
@@ -30,8 +31,7 @@ class AKReplaceColorWithAlpha:
             vals.append(max(0, min(255, v)))
         return tuple(vals)
 
-    def replace_color(self, image, color_rgb, threshold):
-        # ComfyUI IMAGE is typically [B, H, W, C] in 0..1
+    def replace_color(self, image, color_rgb, threshold, softness):
         if image.dim() != 4:
             return (image,)
 
@@ -50,23 +50,32 @@ class AKReplaceColorWithAlpha:
             src_a = torch.ones_like(image[..., :1])
 
         thr = int(threshold) if threshold is not None else 0
+        soft = int(softness) if softness is not None else 0
         if thr < 0:
             thr = 0
         elif thr > 255:
             thr = 255
+        if soft < 0:
+            soft = 0
+        elif soft > 255:
+            soft = 255
 
-        if thr <= 0:
-            # Exact match with minimal epsilon for float rounding.
-            eps = (1.0 / 255.0) + 1e-6
-            diff = (src_rgb - target.view(1, 1, 1, 3)).abs()
-            sel = (diff <= eps).all(dim=-1, keepdim=True)
+        t0 = float(thr) / 255.0
+        t1 = float(min(255, thr + soft)) / 255.0
+
+        d2 = (src_rgb - target.view(1, 1, 1, 3)).pow(2).sum(dim=-1, keepdim=True)
+
+        if soft <= 0:
+            sel = d2 <= (t0 * t0 + 1e-12)
+            out_a = torch.where(sel, torch.zeros_like(src_a), src_a)
         else:
-            # Euclidean distance in RGB (0..1). Threshold is given in 0..255 space.
-            t = float(thr) / 255.0
-            d2 = (src_rgb - target.view(1, 1, 1, 3)).pow(2).sum(dim=-1, keepdim=True)
-            sel = d2 <= (t * t + 1e-12)
+            d = torch.sqrt(d2 + 1e-12)
+            denom = t1 - t0
+            if denom <= 1e-8:
+                denom = 1e-8
+            alpha_factor = ((d - t0) / denom).clamp(0.0, 1.0)
+            out_a = (src_a * alpha_factor).clamp(0.0, 1.0)
 
-        out_a = torch.where(sel, torch.zeros_like(src_a), src_a)
         out = torch.cat([src_rgb, out_a], dim=-1)
         return (out,)
 
