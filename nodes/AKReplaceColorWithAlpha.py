@@ -7,6 +7,7 @@ class AKReplaceColorWithAlpha:
         return {
             "required": {
                 "image": ("IMAGE",),
+                "crop_size": ("INT", {"default": 0, "min": 0, "step": 1}),
                 "color_pick_mode": (["user_color", "left_top_pixel", "right_top_pixel", "left_bottom_pixel", "right_bottom_pixel"], {"default": "user_color"}),
                 "color_rgb": ("STRING", {"default": "8, 39, 245", "multiline": False}),
                 "threshold": ("INT", {"default": 0, "min": 0, "max": 255, "step": 1}),
@@ -46,12 +47,52 @@ class AKReplaceColorWithAlpha:
             y, x = max(0, h - 1), max(0, w - 1)
         else:
             y, x = 0, 0
-        # Take the first batch element's corner pixel as the target color
         return src_rgb[0, y, x, :].clamp(0.0, 1.0)
 
-    def replace_color(self, image, color_pick_mode, color_rgb, threshold, softness):
+    @staticmethod
+    def _compute_crop(h: int, w: int, crop_size: int):
+        p = int(crop_size)
+        if p <= 0:
+            return (0, 0, 0, 0)
+
+        # Preserve aspect: shrink the larger dimension by p, shrink the other proportionally.
+        if w >= h:
+            sub_w = min(p, max(0, w - 1))
+            sub_h = int(round(sub_w * (h / max(1, w))))
+        else:
+            sub_h = min(p, max(0, h - 1))
+            sub_w = int(round(sub_h * (w / max(1, h))))
+
+        left = sub_w // 2
+        right = sub_w - left
+        top = sub_h // 2
+        bottom = sub_h - top
+        return (left, right, top, bottom)
+
+    @staticmethod
+    def _center_crop(img: torch.Tensor, crop_size: int):
+        # img: [B,H,W,C]
+        if img is None or img.dim() != 4:
+            return img
+        b, h, w, c = img.shape
+        left, right, top, bottom = AKReplaceColorWithAlpha._compute_crop(h, w, crop_size)
+        if left == 0 and right == 0 and top == 0 and bottom == 0:
+            return img
+        y0 = top
+        y1 = h - bottom
+        x0 = left
+        x1 = w - right
+        if y1 <= y0 or x1 <= x0:
+            return img
+        return img[:, y0:y1, x0:x1, :]
+
+    def replace_color(self, image, crop_size, color_pick_mode, color_rgb, threshold, softness):
         if image.dim() != 4:
             return (image,)
+
+        cs = int(crop_size) if crop_size is not None else 0
+        if cs > 0:
+            image = self._center_crop(image, cs)
 
         c = image.shape[-1]
         if c < 3:
