@@ -7,6 +7,7 @@ class AKReplaceColorWithAlpha:
         return {
             "required": {
                 "image": ("IMAGE",),
+                "color_pick_mode": (["user_color", "left_top_pixel", "right_top_pixel", "left_bottom_pixel", "right_bottom_pixel"], {"default": "user_color"}),
                 "color_rgb": ("STRING", {"default": "8, 39, 245", "multiline": False}),
                 "threshold": ("INT", {"default": 0, "min": 0, "max": 255, "step": 1}),
                 "softness": ("INT", {"default": 0, "min": 0, "max": 255, "step": 1}),
@@ -31,12 +32,26 @@ class AKReplaceColorWithAlpha:
             vals.append(max(0, min(255, v)))
         return tuple(vals)
 
-    def replace_color(self, image, color_rgb, threshold, softness):
+    @staticmethod
+    def _pick_corner_color(src_rgb: torch.Tensor, mode: str):
+        # src_rgb: [B, H, W, 3] in 0..1
+        _, h, w, _ = src_rgb.shape
+        if mode == "left_top_pixel":
+            y, x = 0, 0
+        elif mode == "right_top_pixel":
+            y, x = 0, max(0, w - 1)
+        elif mode == "left_bottom_pixel":
+            y, x = max(0, h - 1), 0
+        elif mode == "right_bottom_pixel":
+            y, x = max(0, h - 1), max(0, w - 1)
+        else:
+            y, x = 0, 0
+        # Take the first batch element's corner pixel as the target color
+        return src_rgb[0, y, x, :].clamp(0.0, 1.0)
+
+    def replace_color(self, image, color_pick_mode, color_rgb, threshold, softness):
         if image.dim() != 4:
             return (image,)
-
-        rgb = self._parse_rgb(color_rgb)
-        target = torch.tensor([rgb[0], rgb[1], rgb[2]], device=image.device, dtype=image.dtype) / 255.0
 
         c = image.shape[-1]
         if c < 3:
@@ -48,6 +63,14 @@ class AKReplaceColorWithAlpha:
             src_a = image[..., 3:4].clamp(0.0, 1.0)
         else:
             src_a = torch.ones_like(image[..., :1])
+
+        mode = str(color_pick_mode or "user_color")
+
+        if mode == "user_color":
+            rgb = self._parse_rgb(color_rgb)
+            target = torch.tensor([rgb[0], rgb[1], rgb[2]], device=image.device, dtype=image.dtype) / 255.0
+        else:
+            target = self._pick_corner_color(src_rgb, mode).to(device=image.device, dtype=image.dtype)
 
         thr = int(threshold) if threshold is not None else 0
         soft = int(softness) if softness is not None else 0
