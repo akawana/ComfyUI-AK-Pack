@@ -128,6 +128,10 @@ class AKReplaceAlphaWithColor:
 
         src_rgb = image[..., :3].clamp(0.0, 1.0)
 
+        # If a mask is provided but the input image has no alpha channel, do nothing.
+        if mask is not None and c < 4:
+            return (image,)
+
         mode = str(color_pick_mode or "user_color")
         thr = int(threshold) if threshold is not None else 0
 
@@ -142,6 +146,20 @@ class AKReplaceAlphaWithColor:
         color_view = color.view(1, 1, 1, 3).expand_as(src_rgb)
 
         if mask is not None:
+            # Mask must match image spatial resolution.
+            try:
+                ih = int(image.shape[1])
+                iw = int(image.shape[2])
+                if mask.dim() == 3:
+                    mh, mw = int(mask.shape[1]), int(mask.shape[2])
+                elif mask.dim() == 4:
+                    mh, mw = int(mask.shape[1]), int(mask.shape[2])
+                else:
+                    return (image,)
+                if mh != ih or mw != iw:
+                    return (image,)
+            except Exception:
+                return (image,)
             m = mask
             if m.dim() == 3:
                 m = m.unsqueeze(-1)
