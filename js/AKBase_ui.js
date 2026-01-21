@@ -262,7 +262,7 @@ export function installDraw(node, dbg) {
     const btnEnabled = (state.mode === "compare") && !!state.hasGallery;
 
     const copyBtn = copyButtonRect(this);
-    const copyBtnEnabled = (state.mode === "compare") && (state.a.loaded || state.b.loaded);
+    const copyBtnEnabled = ((state.mode === "compare") && (state.a.loaded || state.b.loaded)) || ((state.mode === "gallery") && ((state.gallery?.images?.length ?? 0) > 0));
 
     const pipBtn = pipButtonRect(this);
     const pipBtnEnabled = true;
