@@ -1,15 +1,4 @@
 
-function hideControlAfterGenerate(node) {
-  if (!node?.widgets) return;
-  for (const w of node.widgets) {
-    if (String(w?.name || "").toLowerCase() === "control_after_generate") {
-      w.type = "hidden";
-      w.computeSize = () => [0, -4];
-      w.serialize = true;
-    }
-  }
-}
-
 import { app } from "/scripts/app.js";
 
 const EXT_ID = "ak.control_multiple_ksamplers";
@@ -36,13 +25,6 @@ function findWidgetByAnyName(node, names) {
   return null;
 }
 
-// function hideWidget(node, name) {
-//   const w = findWidget(node, name);
-//   if (!w) return;
-//   w.type = "hidden";
-//   w.computeSize = () => [0, 0];
-//   w.serialize = true;
-// }
 
 function markDirty(node) {
   try { node?.graph?.setDirtyCanvas(true, true); } catch (_) {}
@@ -208,6 +190,8 @@ function syncFromTarget(ctrl, target) {
   if (!target) return;
 
   // Read from target widgets and set into control widgets
+  const stepsW = findWidgetByAnyName(target, ["steps"]);
+
   const samplerW = findWidgetByAnyName(target, ["sampler_name"]);
   const schedulerW = findWidgetByAnyName(target, ["scheduler"]);
   const seedW = findWidgetByAnyName(target, ["seed", "noise_seed"]);
@@ -221,9 +205,10 @@ function syncFromTarget(ctrl, target) {
     try { w.callback?.(w.value); } catch (_) {}
   };
 
+  if (stepsW) setCtrl("steps", coerceInt(stepsW.value, 1));
   if (samplerW) setCtrl("sampler_name", samplerW.value);
   if (schedulerW) setCtrl("scheduler", schedulerW.value);
-  if (seedW) setCtrl("seed", coerceInt(seedW.value, 0));
+  if (seedW) setCtrl("seed ", coerceInt(seedW.value, 0));
   if (cfgW) setCtrl("cfg", coerceFloat(cfgW.value, 8.0));
   if (denoiseW) setCtrl("denoise", coerceFloat(denoiseW.value, 1.0));
 
@@ -233,12 +218,15 @@ function syncFromTarget(ctrl, target) {
 function applyToTarget(ctrl, target) {
   if (!target) return;
 
+  const steps = coerceInt(findWidget(ctrl, "steps")?.value, 1);
+
   const sampler = findWidget(ctrl, "sampler_name")?.value;
   const scheduler = findWidget(ctrl, "scheduler")?.value;
-  const seed = coerceInt(findWidget(ctrl, "seed")?.value, 0);
+  const seed = coerceInt(findWidget(ctrl, "seed ")?.value, 0);
   const cfg = coerceFloat(findWidget(ctrl, "cfg")?.value, 8.0);
   const denoise = coerceFloat(findWidget(ctrl, "denoise")?.value, 1.0);
 
+  setWidgetValueByAnyName(target, ["steps"], steps);
   setWidgetValueByAnyName(target, ["sampler_name"], sampler);
   setWidgetValueByAnyName(target, ["scheduler"], scheduler);
 
@@ -251,6 +239,7 @@ function applyToTarget(ctrl, target) {
   const state = parseState(ctrl);
   const idKey = String(target.id);
   state[idKey] = {
+    steps,
     sampler_name: sampler,
     scheduler,
     seed,
@@ -275,6 +264,7 @@ function applyPersisted(ctrl) {
     const target = byId.get(String(id));
     if (!target || !vals || typeof vals !== "object") continue;
 
+    if ("steps" in vals) setWidgetValueByAnyName(target, ["steps"], coerceInt(vals.steps, 1));
     if ("sampler_name" in vals) setWidgetValueByAnyName(target, ["sampler_name"], vals.sampler_name);
     if ("scheduler" in vals) setWidgetValueByAnyName(target, ["scheduler"], vals.scheduler);
     if ("seed" in vals) setWidgetValueByAnyName(target, ["seed", "noise_seed"], coerceInt(vals.seed, 0));
@@ -294,7 +284,7 @@ function hookCallbacks(ctrl) {
     };
   }
 
-  for (const k of ["sampler_name", "scheduler", "seed", "cfg", "denoise"]) {
+  for (const k of ["steps", "sampler_name", "scheduler", "seed ", "cfg", "denoise"]) {
     const w = findWidget(ctrl, k);
     if (!w) continue;
     const old = w.callback;
@@ -330,6 +320,15 @@ function installRefreshLoop() {
   }, 600);
 }
 
+function createSpacer(name, height = 12) {
+  return {
+    name,
+    type: "hidden",
+    value: "",
+    serialize: false,
+    computeSize: () => [0, height]
+  };
+}
 app.registerExtension({
   name: EXT_ID,
   beforeRegisterNodeDef(nodeType, nodeData) {
@@ -344,9 +343,23 @@ app.registerExtension({
         this.properties.node_list = "KSampler";
       }
 
-      // hideWidget(this, "_ak_state_json");
-      hideControlAfterGenerate(this);
       refreshChooseList(this);
+
+      // spacer widget after choose_ksampler
+      if (!this._ak_has_spacer) {
+        this._ak_has_spacer = true;
+        const spacer1 = createSpacer("_ak_spacer_1", 12);
+        this.widgets.splice(0, 0, spacer1);
+        const spacer2 = createSpacer("_ak_spacer_2", 12);
+        const idx = this.widgets?.findIndex(w => w.name === "choose_ksampler");
+        this.widgets.splice(idx + 1, 0, spacer2);
+
+        if (idx !== -1) {
+        } else {
+          this.widgets.push(spacer);
+        }
+      }
+
       hookCallbacks(this);
 
       setTimeout(() => {
@@ -367,8 +380,6 @@ app.registerExtension({
         this.properties.node_list = "KSampler";
       }
 
-      // hideWidget(this, "_ak_state_json");
-      hideControlAfterGenerate(this);
       refreshChooseList(this);
       hookCallbacks(this);
 
