@@ -2,6 +2,19 @@ import { app } from "/scripts/app.js";
 
 const EXT_ID = "ak.control_multiple_ksamplers";
 
+function akNaturalCompare(a, b) {
+  const re = /(.*?)(\d+)?$/;
+  const am = String(a).match(re);
+  const bm = String(b).match(re);
+  const at = am[1].trim();
+  const bt = bm[1].trim();
+  if (at !== bt) return at.localeCompare(bt);
+  const an = am[2] === undefined ? Infinity : parseInt(am[2], 10);
+  const bn = bm[2] === undefined ? Infinity : parseInt(bm[2], 10);
+  return an - bn;
+}
+
+
 function splitTargets(raw) {
   const s = String(raw ?? "").trim();
   if (!s) return [];
@@ -158,12 +171,14 @@ function refreshChooseList(ctrl) {
   if (!graph) return;
 
   const tokens = splitTargets(ctrl.properties?.node_list || "");
-  const targets = pickTargets(graph, tokens);
+  const targets = pickTargets(graph, tokens).filter(n => String(n?.id) !== String(ctrl?.id));
 
   const chooseW = findWidget(ctrl, "choose_ksampler");
   if (!chooseW) return;
 
   const values = targets.length ? targets.map(getNodeDisplayName) : ["<none>"];
+  if (targets.length) values.sort(akNaturalCompare);
+
   chooseW.options = chooseW.options || {};
   chooseW.options.values = values;
 
@@ -325,6 +340,17 @@ function installRefreshLoop() {
     const graph = app?.graph;
     if (!graph?._nodes) return;
 
+    // Track node renames to refresh choose_ksampler display names
+    let titleSig = "";
+    try {
+      for (const nn of graph._nodes) {
+        if (!nn) continue;
+        titleSig += String(nn.id) + ":" + String(nn.title || "") + "|";
+      }
+    } catch (_) { }
+    const renamed = (graph.__ak_title_sig !== titleSig);
+    graph.__ak_title_sig = titleSig;
+
     for (const n of graph._nodes) {
       if (!n || n.type !== "AK Control Multiple KSamplers") continue;
 
@@ -332,7 +358,7 @@ function installRefreshLoop() {
       const sig = JSON.stringify(tokens);
       const nodeCount = graph._nodes.length;
 
-      if (n._ak_sig !== sig || n._ak_cnt !== nodeCount) {
+      if (renamed || n._ak_sig !== sig || n._ak_cnt !== nodeCount) {
         n._ak_sig = sig;
         n._ak_cnt = nodeCount;
         refreshChooseList(n);
