@@ -1,4 +1,4 @@
-const AKXZ_DEBUG = true;
+const AKXZ_DEBUG = false;
 
 const ORIGINAL_LOG = console.log;
 const ORIGINAL_WARN = console.warn;
@@ -16,7 +16,8 @@ const SILENT_FILES = [
     "AKBase_io.js",
     "AKBase_input.js",
     "AKBase_ui.js",
-    "AKVarNodes.js"
+    "AKVarNodes.js",
+    "AKControlMultipleKSamplers.js"
 ];
 
 console.log = function (...args) {

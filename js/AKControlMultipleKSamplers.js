@@ -1,4 +1,3 @@
-
 import { app } from "/scripts/app.js";
 
 const EXT_ID = "ak.control_multiple_ksamplers";
@@ -20,15 +19,23 @@ function findWidget(node, name) {
 function findWidgetByAnyName(node, names) {
   for (const n of names) {
     const w = findWidget(node, n);
+    // console.log("findWidgetByAnyName", n, w); 
     if (w) return w;
   }
   return null;
 }
 
+function hideWidget(node, name) {
+  const w = findWidget(node, name);
+  if (!w) return;
+  w.type = "hidden";
+  w.computeSize = () => [0, 0];
+  w.serialize = true;
+}
 
 function markDirty(node) {
-  try { node?.graph?.setDirtyCanvas(true, true); } catch (_) {}
-  try { node?.setDirtyCanvas?.(true, true); } catch (_) {}
+  try { node?.graph?.setDirtyCanvas(true, true); } catch (_) { }
+  try { node?.setDirtyCanvas?.(true, true); } catch (_) { }
 }
 
 function setWidgetValueByAnyName(targetNode, names, value) {
@@ -38,10 +45,10 @@ function setWidgetValueByAnyName(targetNode, names, value) {
   w.value = value;
 
   if (typeof w.callback === "function") {
-    try { w.callback(value); } catch (_) {}
+    try { w.callback(value); } catch (_) { }
   }
   if (typeof targetNode.onWidgetChanged === "function") {
-    try { targetNode.onWidgetChanged(w, value); } catch (_) {}
+    try { targetNode.onWidgetChanged(w, value); } catch (_) { }
   }
 
   markDirty(targetNode);
@@ -67,7 +74,7 @@ function getNodeTitleOrType(n) {
 
 function getNodeDisplayName(n) {
   const label = getNodeTitleOrType(n) || "Node";
-  return `${label} #${n.id}`;
+  return `${label} [${n.id}]`;
 }
 
 function isKSamplerLike(n) {
@@ -142,7 +149,7 @@ function writeState(ctrl, state) {
   const w = findWidget(ctrl, "_ak_state_json");
   if (!w) return;
   w.value = JSON.stringify(state);
-  try { w.callback?.(w.value); } catch (_) {}
+  try { w.callback?.(w.value); } catch (_) { }
   markDirty(ctrl);
 }
 
@@ -151,15 +158,7 @@ function refreshChooseList(ctrl) {
   if (!graph) return;
 
   const tokens = splitTargets(ctrl.properties?.node_list || "");
-  const targets = pickTargets(graph, tokens)
-    .filter(t => String(t.id) !== String(ctrl.id))
-    .sort((a, b) => {
-      const na = getNodeTitleOrType(a).toLowerCase();
-      const nb = getNodeTitleOrType(b).toLowerCase();
-      if (na < nb) return -1;
-      if (na > nb) return 1;
-      return a.id - b.id;
-    });
+  const targets = pickTargets(graph, tokens);
 
   const chooseW = findWidget(ctrl, "choose_ksampler");
   if (!chooseW) return;
@@ -170,7 +169,7 @@ function refreshChooseList(ctrl) {
 
   if (!values.includes(chooseW.value)) {
     chooseW.value = values[0];
-    try { chooseW.callback?.(chooseW.value); } catch (_) {}
+    try { chooseW.callback?.(chooseW.value); } catch (_) { }
   }
 
   ctrl._ak_targets = targets;
@@ -180,7 +179,7 @@ function refreshChooseList(ctrl) {
 function resolveSelected(ctrl) {
   const chooseW = findWidget(ctrl, "choose_ksampler");
   const val = String(chooseW?.value || "");
-  const m = val.match(/#(\d+)\s*$/);
+  const m = val.match(/\[(\d+)\]\s*$/);
   if (!m) return null;
   const id = String(parseInt(m[1], 10));
   return (ctrl._ak_targets || []).find(n => String(n.id) === id) || null;
@@ -189,37 +188,56 @@ function resolveSelected(ctrl) {
 function syncFromTarget(ctrl, target) {
   if (!target) return;
 
-  // Read from target widgets and set into control widgets
-  const stepsW = findWidgetByAnyName(target, ["steps"]);
+  const idKey = String(target.id);
+  const state = parseState(ctrl);
+  const saved = state?.[idKey];
 
-  const samplerW = findWidgetByAnyName(target, ["sampler_name"]);
-  const schedulerW = findWidgetByAnyName(target, ["scheduler"]);
-  const seedW = findWidgetByAnyName(target, ["seed", "noise_seed"]);
-  const cfgW = findWidgetByAnyName(target, ["cfg", "cfg_scale"]);
-  const denoiseW = findWidgetByAnyName(target, ["denoise"]);
+  ctrl._ak_syncing = true;
+  try {
+    const setCtrl = (name, value) => {
+      const w = findWidget(ctrl, name);
+      if (!w) return;
+      w.value = value;
+    };
 
-  const setCtrl = (name, value) => {
-    const w = findWidget(ctrl, name);
-    if (!w) return;
-    w.value = value;
-    try { w.callback?.(w.value); } catch (_) {}
-  };
+    // 1) Prefer saved JSON for this target
+    if (saved && typeof saved === "object") {
+      if ("steps" in saved) setCtrl("steps", coerceInt(saved.steps, 1));
+      if ("sampler_name" in saved) setCtrl("sampler_name", saved.sampler_name);
+      if ("scheduler" in saved) setCtrl("scheduler", saved.scheduler);
+      if ("seed" in saved) setCtrl("seed ", coerceInt(saved.seed, 0));
+      if ("cfg" in saved) setCtrl("cfg", coerceFloat(saved.cfg, 8.0));
+      if ("denoise" in saved) setCtrl("denoise", coerceFloat(saved.denoise, 1.0));
+      markDirty(ctrl);
+      return;
+    }
 
-  if (stepsW) setCtrl("steps", coerceInt(stepsW.value, 1));
-  if (samplerW) setCtrl("sampler_name", samplerW.value);
-  if (schedulerW) setCtrl("scheduler", schedulerW.value);
-  if (seedW) setCtrl("seed ", coerceInt(seedW.value, 0));
-  if (cfgW) setCtrl("cfg", coerceFloat(cfgW.value, 8.0));
-  if (denoiseW) setCtrl("denoise", coerceFloat(denoiseW.value, 1.0));
+    // 2) Fallback: read live values from target node widgets
+    const stepsW = findWidgetByAnyName(target, ["steps"]);
+    const samplerW = findWidgetByAnyName(target, ["sampler_name"]);
+    const schedulerW = findWidgetByAnyName(target, ["scheduler"]);
+    const seedW = findWidgetByAnyName(target, ["seed", "noise_seed"]);
+    const cfgW = findWidgetByAnyName(target, ["cfg", "cfg_scale"]);
+    const denoiseW = findWidgetByAnyName(target, ["denoise"]);
 
-  markDirty(ctrl);
+    if (stepsW) setCtrl("steps", coerceInt(stepsW.value, 1));
+    if (samplerW) setCtrl("sampler_name", samplerW.value);
+    if (schedulerW) setCtrl("scheduler", schedulerW.value);
+    if (seedW) setCtrl("seed ", coerceInt(seedW.value, 0));
+    if (cfgW) setCtrl("cfg", coerceFloat(cfgW.value, 8.0));
+    if (denoiseW) setCtrl("denoise", coerceFloat(denoiseW.value, 1.0));
+
+    markDirty(ctrl);
+  } finally {
+    ctrl._ak_syncing = false;
+  }
 }
+
 
 function applyToTarget(ctrl, target) {
   if (!target) return;
 
   const steps = coerceInt(findWidget(ctrl, "steps")?.value, 1);
-
   const sampler = findWidget(ctrl, "sampler_name")?.value;
   const scheduler = findWidget(ctrl, "scheduler")?.value;
   const seed = coerceInt(findWidget(ctrl, "seed ")?.value, 0);
@@ -227,9 +245,10 @@ function applyToTarget(ctrl, target) {
   const denoise = coerceFloat(findWidget(ctrl, "denoise")?.value, 1.0);
 
   setWidgetValueByAnyName(target, ["steps"], steps);
+
   setWidgetValueByAnyName(target, ["sampler_name"], sampler);
   setWidgetValueByAnyName(target, ["scheduler"], scheduler);
-
+  console.log("Applying to target", target.id, { steps, sampler, scheduler, seed, cfg, denoise });
   // Support common variants:
   setWidgetValueByAnyName(target, ["seed", "noise_seed"], seed);
   setWidgetValueByAnyName(target, ["cfg", "cfg_scale"], cfg);
@@ -264,7 +283,6 @@ function applyPersisted(ctrl) {
     const target = byId.get(String(id));
     if (!target || !vals || typeof vals !== "object") continue;
 
-    if ("steps" in vals) setWidgetValueByAnyName(target, ["steps"], coerceInt(vals.steps, 1));
     if ("sampler_name" in vals) setWidgetValueByAnyName(target, ["sampler_name"], vals.sampler_name);
     if ("scheduler" in vals) setWidgetValueByAnyName(target, ["scheduler"], vals.scheduler);
     if ("seed" in vals) setWidgetValueByAnyName(target, ["seed", "noise_seed"], coerceInt(vals.seed, 0));
@@ -278,7 +296,8 @@ function hookCallbacks(ctrl) {
   if (chooseW) {
     const old = chooseW.callback;
     chooseW.callback = (v) => {
-      try { old?.(v); } catch (_) {}
+      if (ctrl._ak_syncing) return;
+      try { old?.(v); } catch (_) { }
       const t = resolveSelected(ctrl);
       if (t) syncFromTarget(ctrl, t);
     };
@@ -289,8 +308,10 @@ function hookCallbacks(ctrl) {
     if (!w) continue;
     const old = w.callback;
     w.callback = (v) => {
-      try { old?.(v); } catch (_) {}
+      if (ctrl._ak_syncing) return;
+      try { old?.(v); } catch (_) { }
       const t = resolveSelected(ctrl);
+      console.log("Widget changed", k, v, "-> applying to target", t?.id);
       if (t) applyToTarget(ctrl, t);
     };
   }
@@ -329,6 +350,7 @@ function createSpacer(name, height = 12) {
     computeSize: () => [0, height]
   };
 }
+
 app.registerExtension({
   name: EXT_ID,
   beforeRegisterNodeDef(nodeType, nodeData) {
@@ -343,27 +365,20 @@ app.registerExtension({
         this.properties.node_list = "KSampler";
       }
 
+      // hideWidget(this, "_ak_state_json");
+      const spacer1 = createSpacer("_ak_spacer_1", 12);
+      this.widgets.splice(0, 0, spacer1);
+
+      const idx = this.widgets?.findIndex(w => w.name === "choose_ksampler");
+      const spacer2 = createSpacer("_ak_spacer_2", 12);
+      this.widgets.splice(idx + 1, 0, spacer2);
+
+
       refreshChooseList(this);
-
-      // spacer widget after choose_ksampler
-      if (!this._ak_has_spacer) {
-        this._ak_has_spacer = true;
-        const spacer1 = createSpacer("_ak_spacer_1", 12);
-        this.widgets.splice(0, 0, spacer1);
-        const spacer2 = createSpacer("_ak_spacer_2", 12);
-        const idx = this.widgets?.findIndex(w => w.name === "choose_ksampler");
-        this.widgets.splice(idx + 1, 0, spacer2);
-
-        if (idx !== -1) {
-        } else {
-          this.widgets.push(spacer);
-        }
-      }
-
       hookCallbacks(this);
 
       setTimeout(() => {
-        try { applyPersisted(this); } catch (_) {}
+        try { applyPersisted(this); } catch (_) { }
         const t = resolveSelected(this);
         if (t) syncFromTarget(this, t);
       }, 0);
@@ -380,11 +395,12 @@ app.registerExtension({
         this.properties.node_list = "KSampler";
       }
 
+      // hideWidget(this, "_ak_state_json");
       refreshChooseList(this);
       hookCallbacks(this);
 
       setTimeout(() => {
-        try { applyPersisted(this); } catch (_) {}
+        try { applyPersisted(this); } catch (_) { }
         const t = resolveSelected(this);
         if (t) syncFromTarget(this, t);
       }, 0);
