@@ -51,8 +51,8 @@ from .nodes.AKResizeOnBoolean import NODE_DISPLAY_NAME_MAPPINGS as RESIZESTATE_D
 from .nodes.IsMaskEmpty import NODE_CLASS_MAPPINGS as ISMSTATE_MAPPINGS
 from .nodes.IsMaskEmpty import NODE_DISPLAY_NAME_MAPPINGS as ISMSTATE_DISPLAY
 
-from .nodes.AKSaturateImage import NODE_CLASS_MAPPINGS as AKSAT_STATE_MAPPINGS
-from .nodes.AKSaturateImage import NODE_DISPLAY_NAME_MAPPINGS as AKSAT_STATE_DISPLAY
+from .nodes.AKContrastAndSaturateImage import NODE_CLASS_MAPPINGS as AKSAT_STATE_MAPPINGS
+from .nodes.AKContrastAndSaturateImage import NODE_DISPLAY_NAME_MAPPINGS as AKSAT_STATE_DISPLAY
 
 from .nodes.AKReplaceAlphaWithColor import NODE_CLASS_MAPPINGS as AKRALPHA_STATE_MAPPINGS
 from .nodes.AKReplaceAlphaWithColor import NODE_DISPLAY_NAME_MAPPINGS as AKRALPHA_STATE_DISPLAY

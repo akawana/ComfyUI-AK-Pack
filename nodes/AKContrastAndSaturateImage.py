@@ -53,13 +53,45 @@ def _slider_to_factor(value: int) -> float:
     v = float(value)
     return max(0.0, 1.0 + v / 100.0)
 
+def _apply_brightness_contrast_rgb01(frame: np.ndarray, brightness: int, contrast: int) -> np.ndarray:
+    """Apply brightness and contrast to an RGB image in [0,1] float32 format."""
+    out = frame.astype(np.float32, copy=False)
 
-class AKSaturateImage:
+    if brightness != 0:
+        out = out + (float(brightness) / 100.0)
+
+    if contrast != 0:
+        factor = 1.0 + (float(contrast) / 100.0)
+        out = (out - 0.5) * factor + 0.5
+
+    return np.clip(out, 0.0, 1.0)
+
+
+
+class AKContrastAndSaturateImage:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "image": ("IMAGE",),
+                "brightness": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": -100,
+                        "max": 100,
+                        "step": 1,
+                    },
+                ),
+                "contrast": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": -100,
+                        "max": 100,
+                        "step": 1,
+                    },
+                ),
                 "master": (
                     "INT",
                     {
@@ -134,6 +166,8 @@ class AKSaturateImage:
     def apply(
         self,
         image: torch.Tensor,
+        brightness: int,
+        contrast: int,
         master: int,
         reds: int,
         yellows: int,
@@ -147,6 +181,19 @@ class AKSaturateImage:
 
         if image.ndim != 4 or image.shape[-1] != 3:
             raise ValueError("Expected image with shape [B, H, W, 3]")
+
+        if (
+            brightness == 0
+            and contrast == 0
+            and master == 0
+            and reds == 0
+            and yellows == 0
+            and greens == 0
+            and cyans == 0
+            and blues == 0
+            and magentas == 0
+        ):
+            return (image,)
 
         device = image.device
         batch_size, h, w, c = image.shape
@@ -164,6 +211,10 @@ class AKSaturateImage:
 
         for i in range(batch_size):
             frame = img_np[i]
+
+            if brightness != 0 or contrast != 0:
+                frame = _apply_brightness_contrast_rgb01(frame, brightness, contrast)
+
             frame_u8 = (frame * 255.0).clip(0, 255).astype(np.uint8)
 
             pil_rgb = Image.fromarray(frame_u8, mode="RGB")
@@ -223,9 +274,8 @@ class AKSaturateImage:
 
 
 NODE_CLASS_MAPPINGS = {
-    "AKSaturateImage": AKSaturateImage,
+    "AKContrastAndSaturateImage": AKContrastAndSaturateImage,
 }
-
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AKSaturateImage": "AK Saturate Image",
+    "AKContrastAndSaturateImage": "AK Contrast & Saturate Image",
 }
