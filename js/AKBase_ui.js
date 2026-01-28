@@ -74,6 +74,7 @@ function drawIconButton(ctx, rect, img, enabled) {
   ctx.restore();
 }
 
+
 export function applyNodeLayout(node) {
   const minW = UI_SETTINGS.previewPadding * 2 + UI_SETTINGS.previewMinWidth;
 

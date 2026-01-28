@@ -41,7 +41,7 @@ class AKSettingsOut:
         "seed",
         "cfg",
         "denoise",
-        "xy_variations",
+        "xz_steps",
     )
     FUNCTION = "output_settings"
     CATEGORY = "AK/settings"
@@ -127,7 +127,7 @@ class AKSettingsOut:
         seed = int(data.get("seed", 0))
         cfg = float(data.get("cfg", 0.0))
         denoise = float(data.get("denoise", 0.0))
-        xy = int(data.get("xy_variations", 1))
+        xy = int(data.get("xz_steps", 1))
 
         return (
             output_folder,

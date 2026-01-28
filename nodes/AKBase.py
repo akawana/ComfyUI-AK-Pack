@@ -1,3 +1,38 @@
+
+# === AKXZ embedded JSON fallback (read from IMAGE tensors) ===
+import json as _akxz_json
+import torch as _akxz_torch
+
+_AKXZ_MAGIC = b"AKXZ"
+_AKXZ_HEADER_LEN = 8
+
+def _akxz_float01_to_bytes(x: _akxz_torch.Tensor) -> bytes:
+    x = _akxz_torch.clamp(x * 255.0 + 0.5, 0, 255).to(_akxz_torch.uint8).cpu()
+    return x.numpy().tobytes()
+
+def akxz_extract_image_cfg_list(images: _akxz_torch.Tensor):
+    if not isinstance(images, _akxz_torch.Tensor) or images.ndim != 4:
+        return []
+    b = int(images.shape[0])
+    out = []
+    for i in range(b):
+        row = images[i, 0, :, :3].reshape(-1)
+        raw = _akxz_float01_to_bytes(row)
+        if len(raw) < _AKXZ_HEADER_LEN or raw[:4] != _AKXZ_MAGIC:
+            continue
+        size = int.from_bytes(raw[4:8], "big")
+        if size <= 0 or (8 + size) > len(raw):
+            continue
+        payload = raw[8:8+size]
+        try:
+            obj = _akxz_json.loads(payload.decode("utf-8"))
+            if isinstance(obj, dict):
+                out.append(obj)
+        except Exception:
+            pass
+    return out
+
+
 import os
 import json
 
@@ -89,16 +124,13 @@ class AKBase:
             },
             "optional": {
                 "b_image": ("IMAGE",),
-                "xz_config": ("STRING", {"forceInput": True}),
-                "ak_settings": ("STRING", {"forceInput": True}),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
             },
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("ak_settings",)
+    RETURN_TYPES = ()
     FUNCTION = "run"
     CATEGORY = "AK/_testing_"
     OUTPUT_NODE = True
@@ -106,9 +138,8 @@ class AKBase:
     def run(
         self,
         a_image,
-        xz_config: str = None,
         b_image=None,
-        ak_settings: str = None,
+        # ak_settings: str = None,
         unique_id=None,
     ):
         a_n = int(a_image.shape[0]) if hasattr(a_image, "shape") else 1
@@ -119,26 +150,34 @@ class AKBase:
         node_id = unique_id if unique_id is not None else getattr(self, "node_id", None)
         node_id = str(node_id) if node_id is not None else None
         suffix = f"_{node_id}" if node_id is not None else ""
-        if ak_settings is not None:
-            try:
-                s = str(ak_settings).strip()
-                if s:
-                    fname = f"ak_settings{suffix}.json"
-                    with open(_temp_path(fname), "w", encoding="utf-8") as f:
-                        f.write(s)
-            except Exception:
-                pass
 
 
         xz_fname = f"ak_base_xz_config{suffix}.json" if suffix else AKBASE_XZ_CONFIG_FILENAME
         try:
+
             content = "{}"
-            if xz_config is not None:
-                s = str(xz_config).strip()
-                if s:
-                    content = s
+            cfg_list = []
+            try:
+                if (a_n > 1) or (b_n > 1):
+                    imgs = []
+                    if a_n > 1:
+                        imgs.extend([a_image[i] for i in range(min(a_n, AKBASE_GALLERY_MAX))])
+                    if b_n > 1 and b_image is not None:
+                        remaining = AKBASE_GALLERY_MAX - len(imgs)
+                        if remaining > 0:
+                            imgs.extend([b_image[i] for i in range(min(b_n, remaining))])
+                    if imgs:
+                        cfg_list = akxz_extract_image_cfg_list(_akxz_torch.stack(imgs, dim=0))
+                else:
+                    cfg_list = akxz_extract_image_cfg_list(a_image)
+            except Exception:
+                cfg_list = []
+
+            if cfg_list:
+                content = json.dumps({"image": cfg_list}, ensure_ascii=False)
             with open(_temp_path(xz_fname), "w", encoding="utf-8") as f:
                 f.write(content)
+
         except Exception:
             pass
 

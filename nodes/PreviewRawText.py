@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,14 +32,34 @@ class PreviewRawText:
 
     CATEGORY = "utils"
 
+    @staticmethod
+    def _pretty_json_if_possible(value: str) -> str:
+        if value is None:
+            return ""
+        s = value.strip()
+        if not s:
+            return value
+        if s[0] not in "{[":
+            return value
+        try:
+            obj = json.loads(s)
+        except Exception:
+            return value
+        try:
+            return json.dumps(obj, ensure_ascii=False, indent=2)
+        except Exception:
+            return value
+
     def notify(self, text=None, list_values=None, unique_id=None):
         base_text = "" if text is None else str(text)
+        base_text = self._pretty_json_if_possible(base_text)
 
         def normalize_list_values(value):
             if value is None:
                 return ""
             if not isinstance(value, list):
-                return "NONE" if value is None else str(value)
+                v = "NONE" if value is None else str(value)
+                return self._pretty_json_if_possible(v)
 
             lines = []
 
@@ -48,12 +69,12 @@ class PreviewRawText:
                         if inner is None:
                             lines.append("NONE")
                         else:
-                            lines.append(str(inner))
+                            lines.append(self._pretty_json_if_possible(str(inner)))
                 else:
                     if v is None:
                         lines.append("NONE")
                     else:
-                        lines.append(str(v))
+                        lines.append(self._pretty_json_if_possible(str(v)))
 
             return "\n\n".join(lines)
 

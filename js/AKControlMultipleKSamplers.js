@@ -14,7 +14,6 @@ function akNaturalCompare(a, b) {
   return an - bn;
 }
 
-
 function splitTargets(raw) {
   const s = String(raw ?? "").trim();
   if (!s) return [];
@@ -248,7 +247,6 @@ function syncFromTarget(ctrl, target) {
   }
 }
 
-
 function applyToTarget(ctrl, target) {
   if (!target) return;
 
@@ -367,16 +365,6 @@ function installRefreshLoop() {
   }, 600);
 }
 
-function createSpacer(name, height = 12) {
-  return {
-    name,
-    type: "hidden",
-    value: "",
-    serialize: false,
-    computeSize: () => [0, height]
-  };
-}
-
 app.registerExtension({
   name: EXT_ID,
   beforeRegisterNodeDef(nodeType, nodeData) {
@@ -390,15 +378,6 @@ app.registerExtension({
       if (typeof this.properties.node_list !== "string" || !this.properties.node_list.trim()) {
         this.properties.node_list = "KSampler";
       }
-
-      // hideWidget(this, "_ak_state_json");
-      const spacer1 = createSpacer("_ak_spacer_1", 12);
-      this.widgets.splice(0, 0, spacer1);
-
-      const idx = this.widgets?.findIndex(w => w.name === "choose_ksampler");
-      const spacer2 = createSpacer("_ak_spacer_2", 12);
-      this.widgets.splice(idx + 1, 0, spacer2);
-
 
       refreshChooseList(this);
       hookCallbacks(this);

@@ -18,7 +18,7 @@ class AKSettingsBig:
                 "seed": ("INT", {"default": 0, "min": -2147483648, "max": 2147483647, "step": 1}),
                 "cfg": ("FLOAT", {"default": 7.0, "min": 0.0, "max": 100.0, "step": 0.1}),
                 "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "xy_variations": ("INT", {"default": 1, "min": 1, "max": 9999, "step": 1}),
+                "xz_steps": ("INT", {"default": 1, "min": 1, "max": 9999, "step": 1}),
             },
             "hidden": {
                 "node_id": "UNIQUE_ID",
@@ -41,7 +41,7 @@ class AKSettingsBig:
         seed: int,
         cfg: float,
         denoise: float,
-        xy_variations: int,
+        xz_steps: int,
         node_id=None,
     ):
         from_id = str(node_id) if node_id is not None else ""
@@ -55,14 +55,14 @@ class AKSettingsBig:
             "seed": int(seed),
             "cfg": float(cfg),
             "denoise": float(denoise),
-            "xy_variations": int(xy_variations),
+            "xz_steps": int(xz_steps),
             "from_id": from_id,
         }
 
         payload = (
             f"{data['output_folder']}|{data['width']}|{data['height']}|{int(data['do_resize'])}|"
             f"{data['sampler_name']}|{data['scheduler']}|{data['seed']}|{data['cfg']}|"
-            f"{data['denoise']}|{data['xy_variations']}|{from_id}"
+            f"{data['denoise']}|{data['xz_steps']}|{from_id}"
         )
         h = zlib.adler32(payload.encode("utf-8")) & 0xFFFFFFFF
         data["hash"] = int(h)

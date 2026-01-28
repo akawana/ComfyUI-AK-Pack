@@ -177,9 +177,17 @@ function installOnNode(node) {
 
   const state = node._akBase;
 
+  if (!node.properties) node.properties = {};
+  if (!Object.prototype.hasOwnProperty.call(node.properties, "node_list")) {
+    if (typeof node.addProperty === "function") {
+      node.addProperty("node_list", "", "string");
+    } else {
+      node.properties.node_list = "";
+    }
+  }
+
 
   applyNodeLayout(node);
-
 
   state.backToGallery = async () => {
     try {
@@ -212,7 +220,7 @@ function installOnNode(node) {
   node.onResize = function (size) {
     const r = origOnResize?.call(this, size);
     applyNodeLayout(this);
-    // app.graph.setDirtyCanvas(true, true);
+
     return r;
   };
 

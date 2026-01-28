@@ -31,7 +31,7 @@ class AKSettingsMini:
                     "step": 0.05,
                     "round": 0.01,
                 }),
-                "xy_variations": ("INT", {
+                "xz_steps": ("INT", {
                     "default": 1,
                     "min": 1,
                     "max": 9999,
@@ -48,13 +48,13 @@ class AKSettingsMini:
     FUNCTION = "make_settings"
     CATEGORY = "AK/settings"
 
-    def make_settings(self, seed, cfg, denoise, xy_variations, node_id=None):
+    def make_settings(self, seed, cfg, denoise, xz_steps, node_id=None):
         cfg = round(cfg, 1)
         denoise = round(denoise, 2)
 
         from_id = str(node_id) if node_id is not None else ""
 
-        payload = f"{from_id}|{int(seed)}|{float(cfg)}|{float(denoise)}|{int(xy_variations)}"
+        payload = f"{from_id}|{int(seed)}|{float(cfg)}|{float(denoise)}|{int(xz_steps)}"
         h = zlib.adler32(payload.encode("utf-8")) & 0xFFFFFFFF
 
         s = json.dumps(
@@ -62,7 +62,7 @@ class AKSettingsMini:
                 "seed": int(seed),
                 "cfg": float(cfg),
                 "denoise": float(denoise),
-                "xy_variations": int(xy_variations),
+                "xz_steps": int(xz_steps),
                 "from_id": from_id,
                 "hash": int(h),
             },

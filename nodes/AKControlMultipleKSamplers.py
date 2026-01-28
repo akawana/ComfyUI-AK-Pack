@@ -11,7 +11,9 @@ class AKControlMultipleKSamplers:
             "required": {
                 "choose_ksampler": (["<none>"], {"default": "<none>"}),
 
+                "seed ": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF, "step": 1}),
                 "steps": ("INT", {"default": 15, "min": 1, "max": 100, "step": 1}),
+                "cfg": ("FLOAT", {"default": 8.0, "min": 0.0, "max": 100.0, "step": 0.1}),
                 "sampler_name": (
                     comfy.samplers.SAMPLER_NAMES,
                     {"default": comfy.samplers.SAMPLER_NAMES[0]}
@@ -20,9 +22,6 @@ class AKControlMultipleKSamplers:
                     comfy.samplers.SCHEDULER_NAMES,
                     {"default": comfy.samplers.SCHEDULER_NAMES[0]}
                 ),
-
-                "seed ": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF, "step": 1}),
-                "cfg": ("FLOAT", {"default": 8.0, "min": 0.0, "max": 100.0, "step": 0.1}),
                 "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             },
             "hidden": {
