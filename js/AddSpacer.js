@@ -12,22 +12,35 @@ function addSpacerWidget(nodeName, beforeWidgetName, seze=20) {
     app.registerExtension({
         name: `AK.AddSpacer.${nodeName}.${beforeWidgetName}`,
         nodeCreated(node) {
-            // console.log(`Adding spacer to ${nodeName} before ${beforeWidgetName}`);
             if (node.comfyClass !== nodeName) return;
-            const spacer = node.addWidget("custom", "", "", () => {});
-            spacer.serialize = false;
-            spacer.computeSize = () => [1, seze];
 
-            const widgets = node.widgets || [];
-            const targetIndex = widgets.findIndex(w => w.name === beforeWidgetName);
+            const insertSpacer = () => {
+                if (node.__ak_spacer_added) return;
+                node.__ak_spacer_added = true;
 
-            widgets.splice(widgets.indexOf(spacer), 1);
+                const spacer = node.addWidget("custom", "", "", () => { });
+                spacer.serialize = false;
+                spacer.computeSize = () => [1, seze];
 
-            if (targetIndex !== -1) {
-                widgets.splice(targetIndex, 0, spacer);
-            } else {
-                widgets.push(spacer);
-            }
+                const widgets = node.widgets || [];
+                const targetIndex = widgets.findIndex(w => w.name === beforeWidgetName);
+
+                widgets.splice(widgets.indexOf(spacer), 1);
+
+                if (targetIndex !== -1) {
+                    widgets.splice(targetIndex, 0, spacer);
+                } else {
+                    widgets.push(spacer);
+                }
+            };
+
+            const origOnConfigure = node.onConfigure;
+            node.onConfigure = function () {
+                if (origOnConfigure) origOnConfigure.apply(this, arguments);
+                insertSpacer();
+            };
+
+            queueMicrotask(insertSpacer);
         },
     });
 }
