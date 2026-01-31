@@ -132,7 +132,7 @@ class AKBase:
 
     RETURN_TYPES = ()
     FUNCTION = "run"
-    CATEGORY = "AK/_testing_"
+    CATEGORY = "AK"
     OUTPUT_NODE = True
 
     def run(

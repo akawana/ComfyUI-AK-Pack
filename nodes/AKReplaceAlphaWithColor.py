@@ -20,7 +20,7 @@ class AKReplaceAlphaWithColor:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "replace_alpha"
-    CATEGORY = "AK/Images"
+    CATEGORY = "AK/image"
 
     @staticmethod
     def _parse_rgb(s: str):

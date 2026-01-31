@@ -24,7 +24,7 @@ class IndexMultiple:
     RETURN_NAMES = tuple(f"item_{i}" for i in range(50))
 
     FUNCTION = "execute"
-    CATEGORY = "utils/list"
+    CATEGORY = "AK/utils/list"
     OUTPUT_NODE = False
 
     INPUT_IS_LIST = True

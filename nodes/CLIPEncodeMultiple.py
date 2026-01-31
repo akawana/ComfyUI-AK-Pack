@@ -35,7 +35,7 @@ class CLIPEncodeMultiple:
     RETURN_NAMES = ("combined_con",) + tuple(f"cond_{i}" for i in range(20))
 
     FUNCTION = "execute"
-    CATEGORY = "conditioning"
+    CATEGORY = "AK/conditioning"
     OUTPUT_NODE = False
 
     INPUT_IS_LIST = True

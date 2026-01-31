@@ -49,7 +49,7 @@ class AKPipe:
     )
 
     FUNCTION = "run"
-    CATEGORY = "AK/Pipe"
+    CATEGORY = "AK/pipe"
     OUTPUT_NODE = True
 
     def _hash_object(self, obj):

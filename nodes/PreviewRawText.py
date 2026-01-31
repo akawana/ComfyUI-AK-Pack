@@ -30,7 +30,7 @@ class PreviewRawText:
     FUNCTION = "notify"
     OUTPUT_NODE = True
 
-    CATEGORY = "utils"
+    CATEGORY = "AK/utils"
 
     @staticmethod
     def _pretty_json_if_possible(value: str) -> str:

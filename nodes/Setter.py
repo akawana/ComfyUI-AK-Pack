@@ -95,7 +95,7 @@ class Setter:
     RETURN_NAMES = ("OUT",)
     FUNCTION = "set"
     OUTPUT_NODE = True
-    CATEGORY = "AK/_testing_"
+    CATEGORY = "AK/pipe"
 
     def set(self, obj, var_name, prompt=None, unique_id=None):
         st = _get_store()

@@ -52,7 +52,7 @@ class AKPipeLoop:
     )
 
     FUNCTION = "run"
-    CATEGORY = "AK/Pipe"
+    CATEGORY = "AK/pipe"
     OUTPUT_NODE = True
 
     @classmethod

@@ -16,7 +16,7 @@ class RepeatGroupState:
     RETURN_TYPES = ()
     RETURN_NAMES = ()
     FUNCTION = "do_nothing"
-    CATEGORY = "utils/logic"
+    CATEGORY = "AK/logic"
 
     @classmethod
     def IS_CHANGED(cls, group_name_contains):

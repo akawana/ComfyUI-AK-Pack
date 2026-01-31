@@ -22,7 +22,7 @@ class Getter:
     RETURN_TYPES = (ANY_TYPE,)
     RETURN_NAMES = ("OBJ",)
     FUNCTION = "get"
-    CATEGORY = "AK/_testing_"
+    CATEGORY = "AK/pipe"
 
     def get(self, inp=None, var_name="", unique_id=None):
         if inp is None:
