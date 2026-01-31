@@ -19,7 +19,7 @@ class CLIPTextEncodeCached:
     RETURN_TYPES = ("CONDITIONING",)
     RETURN_NAMES = ("conditioning",)
     FUNCTION = "execute"
-    CATEGORY = "conditioning"
+    CATEGORY = "AK/conditioning"
     OUTPUT_NODE = False
 
     @classmethod
