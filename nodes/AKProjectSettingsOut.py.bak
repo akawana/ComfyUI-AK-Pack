@@ -1,44 +1,37 @@
 import json
 import io
 import base64
+import os
+
 from PIL import Image
 import numpy as np
 import torch
-import os
 import folder_paths
 
 
-
-def getSubfolderName(fileName: str) -> str:
-    if not fileName:
-        print("[AKProjectSettingsOut] getSubfolderName: empty fileName")
+def _find_first_subfolder_abs_path_by_filename(filename: str) -> str:
+    if not filename:
         return ""
 
     input_dir = folder_paths.get_input_directory()
-    target = fileName.lower().strip()
+    input_dir_abs = os.path.abspath(input_dir)
 
-    print(f"[AKProjectSettingsOut] getSubfolderName: input_dir='{input_dir}', target='{target}'")
+    target = os.path.basename(str(filename)).strip()
+    if not target:
+        return ""
 
-    for root, dirs, files in os.walk(input_dir):
-        root_abs = os.path.abspath(root)
-        input_abs = os.path.abspath(input_dir)
+    target_l = target.lower()
 
-        if root_abs == input_abs:
-            print(f"[AKProjectSettingsOut] walk: skip root='{root}' (dirs={len(dirs)}, files={len(files)})")
+    for dirpath, dirnames, filenames in os.walk(input_dir_abs, topdown=False):
+        dirpath_abs = os.path.abspath(dirpath)
+
+        if dirpath_abs == input_dir_abs:
             continue
 
-        print(f"[AKProjectSettingsOut] walk: root='{root}' (dirs={len(dirs)}, files={len(files)})")
+        for fn in filenames:
+            if str(fn).lower() == target_l:
+                return os.path.join(dirpath_abs, "")
 
-        for i, fn in enumerate(files):
-            fn_l = fn.lower()
-            if i < 10:
-                print(f"[AKProjectSettingsOut]   check: '{fn_l}' == '{target}' ?")
-            if fn_l == target:
-                rel_dir = os.path.relpath(root, input_dir)
-                print(f"[AKProjectSettingsOut]   FOUND in subfolder: rel_dir='{rel_dir}'")
-                return f"\\{rel_dir}\\"
-
-    print("[AKProjectSettingsOut] getSubfolderName: NOT FOUND in subfolders")
     return ""
 
 
@@ -59,8 +52,8 @@ class AKProjectSettingsOut:
         "BOOLEAN",
         "IMAGE",
         "STRING",
-    
-        "STRING",)
+        "STRING",
+    )
 
     RETURN_NAMES = (
         "output_filename",
@@ -70,11 +63,16 @@ class AKProjectSettingsOut:
         "do_resize",
         "image",
         "image_filename",
-    
-        "image_filepath",)
+        "image_filepath",
+    )
 
     FUNCTION = "run"
-    CATEGORY = "AK"
+    CATEGORY = "AK/settings"
+    DESCRIPTION = (
+            "Outputs the values of fields defined in the Project Settings panel. "
+            "Additionally, it can resolve and output the image file path for images "
+            "located in ComfyUI’s native input directory, including nested subfolders."
+    )
 
     def run(self, ak_project_settings_json):
         try:
@@ -99,32 +97,10 @@ class AKProjectSettingsOut:
         try:
             fn = str(image_filename_raw or "").strip()
             if fn:
-                print(f"[AKProjectSettingsOut] resolve image_filepath: raw='{fn}'")
-                input_dir = folder_paths.get_input_directory()
-                target = os.path.basename(fn).strip()
-
-                print(f"[AKProjectSettingsOut] resolve: target='{target}'")
-
-                if target:
-                    # 1) search in subfolders first (skip root input directory itself)
-                    subfolder_path = getSubfolderName(target)
-
-                    print(f"[AKProjectSettingsOut] resolve: subfolder_path='{subfolder_path}'")
-
-                    if subfolder_path:
-                        rel_dir = subfolder_path.strip("\\/")
-                        rel_dir = rel_dir.replace("\\", os.sep)
-
-                        image_filepath = os.path.join(input_dir, rel_dir) + os.sep
-                    else:
-                        # 2) fallback to root input directory (only if file exists there)
-                        root_candidate = os.path.join(input_dir, target)
-                        print(f"[AKProjectSettingsOut] resolve: root_candidate='{root_candidate}', isfile={os.path.isfile(root_candidate)}")
-                        if os.path.isfile(root_candidate):
-                            image_filepath = input_dir + os.sep
-                print(f"[AKProjectSettingsOut] resolve: final image_filepath='{image_filepath}'")
+                image_filepath = _find_first_subfolder_abs_path_by_filename(fn) or ""
         except Exception:
             image_filepath = ""
+
         image_data = vals.get("open_image", "")
         if isinstance(image_data, str) and image_data.startswith("data:image"):
             try:
