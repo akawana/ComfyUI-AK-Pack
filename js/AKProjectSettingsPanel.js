@@ -20,6 +20,8 @@ export const AK_PSP_DEFAULTS = {
   open_image_filename: "",
   // open_image_stem: "",
   // open_image_relpath: "",
+  open_image_subfolder: "",
+  open_image_type: "input",
 };
 
 
@@ -68,6 +70,8 @@ export function readProjectSettingsValues() {
   st.open_image_filename = String(st.open_image_filename ?? "");
   // st.open_image_stem = String(st.open_image_stem ?? "");
   // st.open_image_relpath = String(st.open_image_relpath ?? "");
+  st.open_image_subfolder = String(st.open_image_subfolder ?? "");
+  st.open_image_type = String(st.open_image_type ?? "input");
 
   return st;
 }
@@ -86,6 +90,8 @@ export function writeProjectSettingsValues(next) {
     open_image_filename: String(next.open_image_filename ?? ""),
     // open_image_stem: String(next.open_image_stem ?? ""),
     // open_image_relpath: String(next.open_image_relpath ?? ""),
+    open_image_subfolder: String(next.open_image_subfolder ?? ""),
+    open_image_type: String(next.open_image_type ?? "input"),
   };
 }
 
@@ -441,7 +447,7 @@ export function applyOutputsVisibility(enableMap) {
         const outName = out?.name != null ? String(out.name) : "";
 
         if (!outName || !allow.has(outName)) {
-          try { g?.removeLink?.(lid); } catch (_) {}
+          try { g?.removeLink?.(lid); } catch (_) { }
         }
       }
     }

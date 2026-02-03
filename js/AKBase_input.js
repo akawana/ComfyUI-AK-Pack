@@ -217,7 +217,7 @@ export function installInputHandlers(node) {
 
         let v = value;
 
-        if (widgetName === "seed" || widgetName === "seed " || widgetName === "steps") {
+        if (widgetName === "seed" || widgetName === "seed " || widgetName === "seed_value" || widgetName === "steps") {
           const num = Number(v);
           if (!Number.isFinite(num)) return false;
           v = Math.max(0, Math.trunc(num));

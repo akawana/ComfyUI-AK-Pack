@@ -7,6 +7,8 @@ import {
   writeProjectSettingsValues
 } from "./AKProjectSettingsPanel.js";
 
+const OPEN_IMAGE_GARBAGE_SUBFOLDER = "garbage";
+
 (function () {
   if (document.getElementById("ak-psp-style")) return;
   const s = document.createElement("style");
@@ -359,6 +361,19 @@ export function renderProjectTab(rootEl) {
     preview.style.justifyContent = "center";
     preview.style.overflow = "hidden";
 
+    function makeViewUrl(filename, subfolder, type) {
+      const fn = encodeURIComponent(String(filename || ""));
+      const sf = encodeURIComponent(String(subfolder || ""));
+      const tp = encodeURIComponent(String(type || "input"));
+      if (!fn) return "";
+      return `/view?filename=${fn}&subfolder=${sf}&type=${tp}`;
+    }
+
+    function setPreviewByMeta(filename, subfolder, type) {
+      const url = makeViewUrl(filename, subfolder, type);
+      setPreview(url);
+    }
+
     function setPreview(src) {
       preview.innerHTML = "";
       if (!src || src === "DISABLED") {
@@ -375,7 +390,13 @@ export function renderProjectTab(rootEl) {
       preview.appendChild(img);
     }
 
-    setPreview(values.open_image);
+    if (values.open_image_filename && values.open_image_filename !== "DISABLED") {
+      const sub = values.open_image_subfolder || OPEN_IMAGE_GARBAGE_SUBFOLDER;
+      const tp = values.open_image_type || "input";
+      setPreviewByMeta(values.open_image_filename, sub, tp);
+    } else {
+      setPreview(values.open_image);
+    }
 
     btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -384,30 +405,50 @@ export function renderProjectTab(rootEl) {
       btn.blur();
     });
 
-    inp.addEventListener("change", () => {
+    async function uploadToComfyInput(file, subfolder) {
+      const fd = new FormData();
+      fd.append("image", file);
+      fd.append("type", "input");
+      fd.append("subfolder", String(subfolder || ""));
+      fd.append("overwrite", "true");
+
+      const res = await fetch("/upload/image", { method: "POST", body: fd });
+      if (!res.ok) {
+        throw new Error(`upload failed: ${res.status}`);
+      }
+      const j = await res.json().catch(() => ({}));
+      return {
+        name: String(j.name || file.name || ""),
+        subfolder: String(j.subfolder || subfolder || ""),
+        type: String(j.type || "input"),
+      };
+    }
+
+    inp.addEventListener("change", async () => {
       const f = inp.files && inp.files[0] ? inp.files[0] : null;
       if (!f) return;
 
-      const filename = String(f.name ?? "");
-      const stem = fileStem(filename);
-      const relpath = relPathFromFile(f);
+      // загружаем в fixed subfolder: input/garbage/
+      let meta = null;
+      try {
+        meta = await uploadToComfyInput(f, OPEN_IMAGE_GARBAGE_SUBFOLDER);
+      } catch (e) {
+        // если upload упал — просто не сохраняем ничего, превью тоже не меняем
+        return;
+      }
 
-      const r = new FileReader();
-      r.onload = () => {
-        const dataUrl = typeof r.result === "string" ? r.result : "";
-        setPreview(dataUrl);
-        // commitIfEnabled("open_image", dataUrl, enabled);
+      // превью всегда через /view (а не dataURL)
+      setPreviewByMeta(meta.name, meta.subfolder, meta.type);
 
-        const st = readProjectSettingsValues();
-        st.open_image = dataUrl;
-        st.open_image_filename = filename;
-        // st.open_image_stem = stem;
-        // st.open_image_relpath = relpath;
-        writeProjectSettingsValues(st);
-        syncAllProjectSettingsOutNodes();
+      // сохраняем в graph ТОЛЬКО метаданные (никаких base64)
+      const st = readProjectSettingsValues();
+      st.open_image = ""; // важно: очищаем, чтобы не попадало в workflow
+      st.open_image_filename = meta.name;
+      st.open_image_subfolder = meta.subfolder;
+      st.open_image_type = meta.type;
 
-      };
-      r.readAsDataURL(f);
+      writeProjectSettingsValues(st);
+      syncAllProjectSettingsOutNodes();
     });
 
     block.appendChild(btn);

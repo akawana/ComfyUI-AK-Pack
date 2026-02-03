@@ -126,8 +126,19 @@ function applyEnabledTransitions(enableSt) {
   if (!enableSt.output_subfolder && v.output_subfolder !== "DISABLED") v.output_subfolder = "DISABLED";
   if (enableSt.output_subfolder && v.output_subfolder === "DISABLED") v.output_subfolder = "";
 
-  if (!enableSt.open_image && v.open_image !== "DISABLED") v.open_image = "DISABLED";
-  if (enableSt.open_image && v.open_image === "DISABLED") v.open_image = "";
+  if (!enableSt.open_image && v.open_image !== "DISABLED") {
+    v.open_image = "DISABLED";
+    v.open_image_filename = "DISABLED";
+    v.open_image_subfolder = "DISABLED";
+    v.open_image_type = "DISABLED";
+  }
+
+  if (enableSt.open_image && v.open_image === "DISABLED") {
+    v.open_image = "";
+    if (v.open_image_filename === "DISABLED") v.open_image_filename = "";
+    if (v.open_image_subfolder === "DISABLED") v.open_image_subfolder = "";
+    if (v.open_image_type === "DISABLED") v.open_image_type = "input";
+  }
 
 
   const w = toInt(v.width, -1);
