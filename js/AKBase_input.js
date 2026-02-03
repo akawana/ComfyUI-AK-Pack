@@ -209,7 +209,7 @@ export function installInputHandlers(node) {
           // console.log("[AKBase] checking widget", { name: w.name, widgetName });
           // if (w.name === widgetName || w.name.slice(0, -1) === widgetName) return w;
           const names = ALIASES[widgetName] || [widgetName];
-          if (names.includes(w.name) || names.includes(w.name.slice(0, -1)))
+          if (names.includes(w.name) || names.includes(w.name.slice(0, -1))) return w;
         }
         return null;
       }
