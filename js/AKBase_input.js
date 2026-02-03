@@ -198,12 +198,18 @@ export function installInputHandlers(node) {
       const selfId = node?.id;
 
       function findWidgetByName(n, widgetName) {
+        const ALIASES = {
+          seed: ["seed", "seed_value", "seed "],
+          steps: ["steps", "step"],
+        };
         const ws = n?.widgets;
         if (!Array.isArray(ws)) return null;
         for (const w of ws) {
           if (!w) continue;
-          console.log("[AKBase] checking widget", { name: w.name, widgetName });
-          if (w.name === widgetName || w.name.slice(0, -1) === widgetName) return w;
+          // console.log("[AKBase] checking widget", { name: w.name, widgetName });
+          // if (w.name === widgetName || w.name.slice(0, -1) === widgetName) return w;
+          const names = ALIASES[widgetName] || [widgetName];
+          if (names.includes(w.name) || names.includes(w.name.slice(0, -1)))
         }
         return null;
       }
