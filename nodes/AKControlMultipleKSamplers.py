@@ -31,7 +31,7 @@ class AKControlMultipleKSamplers:
 
     RETURN_TYPES = ()
     FUNCTION = "noop"
-    CATEGORY = "AK/settings"
+    CATEGORY = "AK/sampling"
 
     def noop(self, **kwargs):
         return ()

@@ -77,11 +77,11 @@ function applyEnabledState(enabled) {
 
 function getStore() {
   const g = app?.graph;
-  if (!g) return { nodes_list: "", sorting_mode: "By name", selected_sampler_id: "", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
+  if (!g) return { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", selected_sampler_id: "", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
   if (!g.extra) g.extra = {};
   const st = g.extra[STORE_KEY];
   if (!st || typeof st !== "object") {
-    g.extra[STORE_KEY] = { nodes_list: "", sorting_mode: "By name", selected_sampler_id: "", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
+    g.extra[STORE_KEY] = { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", selected_sampler_id: "", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
     return g.extra[STORE_KEY];
   }
   if (typeof st.nodes_list !== "string") st.nodes_list = "";
@@ -166,12 +166,15 @@ function findNodesFromNodesList(nodesListText) {
 function getControlledNodes() {
   const st = getStore();
   const nodes = findNodesFromNodesList(st.nodes_list);
+  const excluded = findNodesFromNodesList(st.nodes_exclude_list);
+  const exIds = new Set(excluded.map(n => n?.id));
+  const filtered = nodes.filter(n => n && !exIds.has(n.id));
 
   if (st.sorting_mode === "By order in list") {
-    return nodes;
+    return filtered;
   }
 
-  return nodes.slice().sort((a, b) => {
+  return filtered.slice().sort((a, b) => {
     const ta = String(a?.title ?? "");
     const tb = String(b?.title ?? "");
     const c = naturalCompare(ta, tb);

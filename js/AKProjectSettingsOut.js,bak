@@ -1,0 +1,83 @@
+import { app } from "../../scripts/app.js";
+
+const VALUE_KEY = "ak_project_settings_values";
+const ENABLE_KEY = "ak_project_settings_enable_options";
+
+function hideWidget(node) {
+  if (!node.widgets) return;
+
+  for (const w of node.widgets) {
+    if (w.name === "ak_project_settings_json") {
+      w.type = "hidden";
+      w.hidden = true;
+      // console.log("Hiding widget:", w);
+
+      w.computeSize = () => [0, 0];
+
+      if (w.inputEl) {
+        w.inputEl.style.display = "none";
+        w.inputEl.style.height = "0px";
+        w.inputEl.style.minHeight = "0px";
+        w.inputEl.style.maxHeight = "0px";
+        w.inputEl.style.padding = "0";
+        w.inputEl.style.margin = "0";
+      }
+    }
+  }
+
+  if (typeof node.setSize === "function") {
+    node.setSize([node.size[0], node.size[1]]);
+  }
+}
+
+function syncNode(node) {
+  const extra = app.graph?.extra || {};
+  const vals = extra[VALUE_KEY] || {};
+  const json = JSON.stringify(vals);
+
+  const w = node.widgets?.find(w => w.name === "ak_project_settings_json");
+  if (w) w.value = json;
+
+  hideWidget(node);
+
+  const en = extra[ENABLE_KEY] || {};
+  const hideImage = en.open_image === false;
+
+  for (const o of node.outputs || []) {
+    if (["image", "image_filename", "image_path"].includes(o.name)) {
+      o.hidden = hideImage;
+    }
+  }
+
+  node.setDirtyCanvas(true, true);
+}
+
+app.registerExtension({
+  name: "AK.ProjectSettingsOut.Sync",
+  setup() {
+
+    app.graph.onNodeAdded = (node) => {
+      if (node?.type === "AKProjectSettingsOut") {
+        hideWidget(node);
+        syncNode(node);
+      }
+    };
+
+    const oldDraw = LGraphCanvas.prototype.drawNode;
+    LGraphCanvas.prototype.drawNode = function(node, ctx) {
+      if (node?.type === "AKProjectSettingsOut" && !node.__ak_hidden_init) {
+        node.__ak_hidden_init = true;
+        hideWidget(node);
+      }
+      return oldDraw.call(this, node, ctx);
+    };
+
+    app.graph.onAfterChange = () => {
+      for (const n of app.graph._nodes || []) {
+        if (n.type === "AKProjectSettingsOut") {
+          syncNode(n);
+        }
+      }
+    };
+  }
+});

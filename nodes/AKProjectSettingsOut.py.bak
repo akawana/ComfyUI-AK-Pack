@@ -1,0 +1,157 @@
+import json
+import io
+import base64
+from PIL import Image
+import numpy as np
+import torch
+import os
+import folder_paths
+
+
+
+def getSubfolderName(fileName: str) -> str:
+    if not fileName:
+        print("[AKProjectSettingsOut] getSubfolderName: empty fileName")
+        return ""
+
+    input_dir = folder_paths.get_input_directory()
+    target = fileName.lower().strip()
+
+    print(f"[AKProjectSettingsOut] getSubfolderName: input_dir='{input_dir}', target='{target}'")
+
+    for root, dirs, files in os.walk(input_dir):
+        root_abs = os.path.abspath(root)
+        input_abs = os.path.abspath(input_dir)
+
+        if root_abs == input_abs:
+            print(f"[AKProjectSettingsOut] walk: skip root='{root}' (dirs={len(dirs)}, files={len(files)})")
+            continue
+
+        print(f"[AKProjectSettingsOut] walk: root='{root}' (dirs={len(dirs)}, files={len(files)})")
+
+        for i, fn in enumerate(files):
+            fn_l = fn.lower()
+            if i < 10:
+                print(f"[AKProjectSettingsOut]   check: '{fn_l}' == '{target}' ?")
+            if fn_l == target:
+                rel_dir = os.path.relpath(root, input_dir)
+                print(f"[AKProjectSettingsOut]   FOUND in subfolder: rel_dir='{rel_dir}'")
+                return f"\\{rel_dir}\\"
+
+    print("[AKProjectSettingsOut] getSubfolderName: NOT FOUND in subfolders")
+    return ""
+
+
+class AKProjectSettingsOut:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "ak_project_settings_json": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+
+    RETURN_TYPES = (
+        "STRING",
+        "STRING",
+        "INT",
+        "INT",
+        "BOOLEAN",
+        "IMAGE",
+        "STRING",
+    
+        "STRING",)
+
+    RETURN_NAMES = (
+        "output_filename",
+        "output_subfolder",
+        "width",
+        "height",
+        "do_resize",
+        "image",
+        "image_filename",
+    
+        "image_filepath",)
+
+    FUNCTION = "run"
+    CATEGORY = "AK"
+
+    def run(self, ak_project_settings_json):
+        try:
+            vals = json.loads(ak_project_settings_json or "{}")
+        except Exception:
+            vals = {}
+
+        output_filename = str(vals.get("output_filename", ""))
+        output_subfolder = str(vals.get("output_subfolder", ""))
+        width = int(vals.get("width", 0) or 0)
+        height = int(vals.get("height", 0) or 0)
+
+        do_resize_raw = int(vals.get("do_resize", 0) or 0)
+        do_resize = bool(do_resize_raw == 1)
+
+        image = None
+
+        image_filename_raw = str(vals.get("open_image_filename") or "")
+        image_filename = os.path.splitext(os.path.basename(image_filename_raw.strip()))[0] if image_filename_raw else ""
+
+        image_filepath = ""
+        try:
+            fn = str(image_filename_raw or "").strip()
+            if fn:
+                print(f"[AKProjectSettingsOut] resolve image_filepath: raw='{fn}'")
+                input_dir = folder_paths.get_input_directory()
+                target = os.path.basename(fn).strip()
+
+                print(f"[AKProjectSettingsOut] resolve: target='{target}'")
+
+                if target:
+                    # 1) search in subfolders first (skip root input directory itself)
+                    subfolder_path = getSubfolderName(target)
+
+                    print(f"[AKProjectSettingsOut] resolve: subfolder_path='{subfolder_path}'")
+
+                    if subfolder_path:
+                        rel_dir = subfolder_path.strip("\\/")
+                        rel_dir = rel_dir.replace("\\", os.sep)
+
+                        image_filepath = os.path.join(input_dir, rel_dir) + os.sep
+                    else:
+                        # 2) fallback to root input directory (only if file exists there)
+                        root_candidate = os.path.join(input_dir, target)
+                        print(f"[AKProjectSettingsOut] resolve: root_candidate='{root_candidate}', isfile={os.path.isfile(root_candidate)}")
+                        if os.path.isfile(root_candidate):
+                            image_filepath = input_dir + os.sep
+                print(f"[AKProjectSettingsOut] resolve: final image_filepath='{image_filepath}'")
+        except Exception:
+            image_filepath = ""
+        image_data = vals.get("open_image", "")
+        if isinstance(image_data, str) and image_data.startswith("data:image"):
+            try:
+                _, b64 = image_data.split(",", 1)
+                raw = base64.b64decode(b64)
+                img = Image.open(io.BytesIO(raw)).convert("RGB")
+                np_img = np.array(img).astype(np.float32) / 255.0
+                image = torch.from_numpy(np_img)[None,]
+            except Exception:
+                image = None
+
+        return (
+            output_filename,
+            output_subfolder,
+            width,
+            height,
+            do_resize,
+            image,
+            image_filename,
+            image_filepath,
+        )
+
+
+NODE_CLASS_MAPPINGS = {
+    "AKProjectSettingsOut": AKProjectSettingsOut
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "AKProjectSettingsOut": "AK Project Settings Out"
+}

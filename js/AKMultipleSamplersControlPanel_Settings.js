@@ -5,14 +5,15 @@ const STORE_KEY = "ak_multiple_samplers_control_panel";
 
 function getStore() {
   const g = app?.graph;
-  if (!g) return { nodes_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
+  if (!g) return { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
   if (!g.extra) g.extra = {};
   const st = g.extra[STORE_KEY];
   if (!st || typeof st !== "object") {
-    g.extra[STORE_KEY] = { nodes_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
+    g.extra[STORE_KEY] = { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
     return g.extra[STORE_KEY];
   }
-  if (typeof st.nodes_list !== "string") st.nodes_list = "";
+  if (typeof st.nodes_list !== "string") st.nodes_list = "KSampler";
+  if (typeof st.nodes_exclude_list !== "string") st.nodes_exclude_list = "";
   if (st.sorting_mode !== "By name" && st.sorting_mode !== "By order in list") {
     st.sorting_mode = "By name";
   }
@@ -92,7 +93,12 @@ export function renderSettingsPanel(el) {
   const nodesText = mkTextarea();
   nodesText.value = st.nodes_list;
 
-  const sortingLabel = mkLabel("Sorting mode:");
+  
+  const excludeLabel = mkLabel("List nodes to exclude:");
+  const excludeText = mkTextarea();
+  excludeText.value = st.nodes_exclude_list;
+
+const sortingLabel = mkLabel("Sorting mode:");
   const sortingSelect = mkSelect(["By name", "By order in list"]);
   sortingSelect.value = st.sorting_mode;
 
@@ -115,6 +121,7 @@ export function renderSettingsPanel(el) {
       saveTimer = 0;
       const s = getStore();
       s.nodes_list = String(nodesText.value ?? "");
+      s.nodes_exclude_list = String(excludeText.value ?? "");
       const mode = String(sortingSelect.value ?? "By name");
       s.sorting_mode = mode === "By order in list" ? "By order in list" : "By name";
 
@@ -142,6 +149,7 @@ export function renderSettingsPanel(el) {
   };
 
   nodesText.addEventListener("input", scheduleSave);
+  excludeText.addEventListener("input", scheduleSave);
   sortingSelect.addEventListener("change", scheduleSave);
   cfgStepInput.addEventListener("input", scheduleSave);
   denoiseStepInput.addEventListener("input", scheduleSave);
@@ -149,6 +157,8 @@ export function renderSettingsPanel(el) {
 
   el.appendChild(nodesLabel);
   el.appendChild(nodesText);
+  el.appendChild(excludeLabel);
+  el.appendChild(excludeText);
   el.appendChild(sortingLabel);
   el.appendChild(sortingSelect);
   el.appendChild(cfgStepLabel);
