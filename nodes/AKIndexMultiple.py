@@ -6,7 +6,7 @@ class AnyType(str):
 
 ANY_TYPE = AnyType("*")
 
-class IndexMultiple:
+class AKIndexMultiple:
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -24,7 +24,7 @@ class IndexMultiple:
     RETURN_NAMES = tuple(f"item_{i}" for i in range(50))
 
     FUNCTION = "execute"
-    CATEGORY = "AK/utils/list"
+    CATEGORY = "AK/utils"
     OUTPUT_NODE = False
 
     INPUT_IS_LIST = True
@@ -68,5 +68,5 @@ class IndexMultiple:
         return tuple(result)
 
 
-NODE_CLASS_MAPPINGS = {"IndexMultiple": IndexMultiple}
-NODE_DISPLAY_NAME_MAPPINGS = {"IndexMultiple": "Index Multiple"}
+NODE_CLASS_MAPPINGS = {"AKIndexMultiple": AKIndexMultiple}
+NODE_DISPLAY_NAME_MAPPINGS = {"AKIndexMultiple": "AK Index Multiple"}

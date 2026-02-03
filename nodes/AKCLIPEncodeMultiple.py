@@ -9,7 +9,7 @@ class AnyType(str):
 ANY_TYPE = AnyType("*")
 
 
-class CLIPEncodeMultiple:
+class AKCLIPEncodeMultiple:
     empty_cache = {}
     # text_cache = {}
 
@@ -240,5 +240,5 @@ class CLIPEncodeMultiple:
         return (combined_cond,) + tuple(result)
 
 
-NODE_CLASS_MAPPINGS = {"CLIPEncodeMultiple": CLIPEncodeMultiple}
-NODE_DISPLAY_NAME_MAPPINGS = {"CLIPEncodeMultiple": "CLIP Encode Multiple"}
+NODE_CLASS_MAPPINGS = {"AKCLIPEncodeMultiple": AKCLIPEncodeMultiple}
+NODE_DISPLAY_NAME_MAPPINGS = {"AKCLIPEncodeMultiple": "AK CLIP Encode Multiple"}

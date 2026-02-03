@@ -1,10 +1,10 @@
 WEB_DIRECTORY = "./js"
 
-from .nodes.IndexMultiple import NODE_CLASS_MAPPINGS as INDEX_MAPPINGS
-from .nodes.IndexMultiple import NODE_DISPLAY_NAME_MAPPINGS as INDEX_DISPLAY
+from .nodes.AKIndexMultiple import NODE_CLASS_MAPPINGS as AKIndexMultiple_MAPPINGS
+from .nodes.AKIndexMultiple import NODE_DISPLAY_NAME_MAPPINGS as AKIndexMultiple_DISPLAY
 
-from .nodes.CLIPEncodeMultiple import NODE_CLASS_MAPPINGS as CLIP_MAPPINGS
-from .nodes.CLIPEncodeMultiple import NODE_DISPLAY_NAME_MAPPINGS as CLIP_DISPLAY
+from .nodes.AKCLIPEncodeMultiple import NODE_CLASS_MAPPINGS as AKCLIPEncodeMultiple_MAPPINGS
+from .nodes.AKCLIPEncodeMultiple import NODE_DISPLAY_NAME_MAPPINGS as AKCLIPEncodeMultiple_DISPLAY
 
 from .nodes.IsOneOfGroupsActive import NODE_CLASS_MAPPINGS as GROUPCHK_MAPPINGS
 from .nodes.IsOneOfGroupsActive import NODE_DISPLAY_NAME_MAPPINGS as GROUPCHK_DISPLAY
@@ -61,8 +61,8 @@ from .nodes.AKProjectSettingsOut import NODE_CLASS_MAPPINGS as AKProjectSettings
 from .nodes.AKProjectSettingsOut import NODE_DISPLAY_NAME_MAPPINGS as AKProjectSettingsOut_STATE_DISPLAY
 
 NODE_CLASS_MAPPINGS = {
-    **INDEX_MAPPINGS,
-    **CLIP_MAPPINGS,
+    **AKIndexMultiple_MAPPINGS,
+    **AKCLIPEncodeMultiple_MAPPINGS,
     **GROUPCHK_MAPPINGS,
     **RPSTATE_MAPPINGS,
     **PRTSTATE_MAPPINGS,
@@ -84,8 +84,8 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    **INDEX_DISPLAY,
-    **CLIP_DISPLAY,
+    **AKIndexMultiple_DISPLAY,
+    **AKCLIPEncodeMultiple_DISPLAY,
     **GROUPCHK_DISPLAY,
     **RPSTATE_DISPLAY,
     **PRTSTATE_DISPLAY,

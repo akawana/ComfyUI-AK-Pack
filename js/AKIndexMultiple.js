@@ -2,10 +2,10 @@
 import { app } from "../../../scripts/app.js";
 
 app.registerExtension({
-    name: "IndexMultiple.dynamicOutputs",
+    name: "AKIndexMultiple.dynamicOutputs",
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        if (nodeData.name !== "IndexMultiple") return;
+        if (nodeData.name !== "AKIndexMultiple") return;
 
         function updateOutputs(node) {
             const lengthWidget = node.widgets.find(w => w.name === "length");

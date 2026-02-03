@@ -2,10 +2,10 @@
 import { app } from "../../../scripts/app.js";
 
 app.registerExtension({
-    name: "CLIPEncodeMultiple.dynamicOutputs",
+    name: "AKCLIPEncodeMultiple.dynamicOutputs",
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        if (nodeData.name !== "CLIPEncodeMultiple") return;
+        if (nodeData.name !== "AKCLIPEncodeMultiple") return;
 
         function updateOutputs(node) {
             const lengthWidget = node.widgets?.find(w => w.name === "length");
