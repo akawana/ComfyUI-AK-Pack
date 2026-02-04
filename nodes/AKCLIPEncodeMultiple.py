@@ -168,9 +168,9 @@ class AKCLIPEncodeMultiple:
         start = max(0, int(start_raw))
         length_val = max(1, min(20, int(length_raw)))
 
-        if CLIPEncodeMultiple.last_items is None or len(CLIPEncodeMultiple.last_items) != len(items):
-            CLIPEncodeMultiple.last_items = [None] * len(items)
-            CLIPEncodeMultiple.idx_cache.clear()
+        if AKCLIPEncodeMultiple.last_items is None or len(AKCLIPEncodeMultiple.last_items) != len(items):
+            AKCLIPEncodeMultiple.last_items = [None] * len(items)
+            AKCLIPEncodeMultiple.idx_cache.clear()
 
         clip_id = self._clip_key(clip_obj)
         items_copy = list(items)
@@ -178,7 +178,7 @@ class AKCLIPEncodeMultiple:
         hval = self._compute_hash(items_copy, masks_copy, start, length_val)
         cache_key = (clip_id, hval)
 
-        cached_entry = CLIPEncodeMultiple.hash_cache.get(cache_key)
+        cached_entry = AKCLIPEncodeMultiple.hash_cache.get(cache_key)
         if cached_entry is not None:
             combined_cached, per_idx_cached = cached_entry
             per_idx_cached = list(per_idx_cached)
@@ -207,21 +207,20 @@ class AKCLIPEncodeMultiple:
                     if empty_cond is None:
                         empty_cond = self._get_empty_cond(clip_obj)
                     base_cond = empty_cond
-                    CLIPEncodeMultiple.last_items[idx] = None
+                    AKCLIPEncodeMultiple.last_items[idx] = None
                 else:
-                    prev = CLIPEncodeMultiple.last_items[idx]
+                    prev = AKCLIPEncodeMultiple.last_items[idx]
                     if v == prev:
-                        cached = CLIPEncodeMultiple.idx_cache.get((clip_id, idx))
+                        cached = AKCLIPEncodeMultiple.idx_cache.get((clip_id, idx))
                         if cached is not None:
                             base_cond = cached
                         else:
                             base_cond = self._encode_text(clip_obj, v)
-                            CLIPEncodeMultiple.idx_cache[(clip_id, idx)] = base_cond
+                            AKCLIPEncodeMultiple.idx_cache[(clip_id, idx)] = base_cond
                     else:
                         base_cond = self._encode_text(clip_obj, v)
-                        CLIPEncodeMultiple.idx_cache[(clip_id, idx)] = base_cond
-                        CLIPEncodeMultiple.last_items[idx] = v
-
+                        AKCLIPEncodeMultiple.idx_cache[(clip_id, idx)] = base_cond
+                        AKCLIPEncodeMultiple.last_items[idx] = v
                 cond = self._apply_mask_to_cond(base_cond, mask_for_idx)
                 if v is not None and cond is not None:
                     if combined_cond is None:
@@ -235,7 +234,7 @@ class AKCLIPEncodeMultiple:
         if length_val < 20:
             result.extend([None] * (20 - length_val))
 
-        CLIPEncodeMultiple.hash_cache[cache_key] = (combined_cond, list(result))
+        AKCLIPEncodeMultiple.hash_cache[cache_key] = (combined_cond, list(result))
 
         return (combined_cond,) + tuple(result)
 
