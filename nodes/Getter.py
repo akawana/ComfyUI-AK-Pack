@@ -11,7 +11,7 @@ class Getter:
         return {
             "required": {},
             "optional": {
-                "inp": (ANY_TYPE,),
+                "inp": ("*",),
             },
             "hidden": {
                 "var_name": "STRING",
@@ -19,7 +19,7 @@ class Getter:
             },
         }
 
-    RETURN_TYPES = (ANY_TYPE,)
+    RETURN_TYPES = ("*",)
     RETURN_NAMES = ("OBJ",)
     FUNCTION = "get"
     CATEGORY = "AK/pipe"
