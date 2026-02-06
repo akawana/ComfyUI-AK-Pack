@@ -18,13 +18,6 @@ function _setChangedName(oldName, newName, setterId) {
   return _akVarChangedName;
 }
 
-// function _clearChangedNameLater(token) {
-//   try {
-//     setTimeout(() => {
-//       if (_akVarChangedName === token) _akVarChangedName = null;
-//     }, 0);
-//   } catch (_) { }
-// }
 
 function _isGetterNode(node) {
   return node?.type === "Getter" || node?.comfyClass === "Getter";
@@ -487,11 +480,8 @@ function _applyChangedNameIfNeeded(getterNode) {
   try {
     if (!getterNode.properties) getterNode.properties = {};
     getterNode.properties.var_name = ch.new;
-    // try { app.graph?.change?.(); } catch (_) { }
-    // try { app.graph?.setDirtyCanvas?.(true, true); } catch (_) { }
 
   } catch (_) { }
-  // try { _clearChangedNameLater(ch); } catch (_) { }
   return true;
 }
 
