@@ -21,7 +21,7 @@ class Setter:
     RETURN_TYPES = ("*",)
     RETURN_NAMES = ("OUT",)
     FUNCTION = "set"
-    OUTPUT_NODE = True
+    # OUTPUT_NODE = True
     CATEGORY = "AK/pipe"
 
     def set(self, obj, var_name="", unique_id=None):
