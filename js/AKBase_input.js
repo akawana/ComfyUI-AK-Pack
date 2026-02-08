@@ -502,7 +502,7 @@ export function installInputHandlers(node) {
 
 
   node.onMouseDown = function (e, pos) {
-    console.log("[AKBase] onMouseDown", { mode: state.mode, pos });
+    // console.log("[AKBase] onMouseDown", { mode: state.mode, pos });
 
     let localX = pos[0];
     let localY = pos[1];
