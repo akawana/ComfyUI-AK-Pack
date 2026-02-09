@@ -523,11 +523,12 @@ function _installHideLinksPatch() {
     // return false;
     const l = graph?.links?.[linkId];
     if (!l) return false;
+    if (l._ak_hide !== true) return false;
     const a = graph.getNodeById(l.origin_id);
     const b = graph.getNodeById(getterNodeId); // Because there is no target_id when we just create node.
     if (!a || !b) return false;
     if (!_isSetterNode(a) || !_isGetterNode(b)) return false;
-    l.target_id = getterNodeId;
+    // l.target_id = getterNodeId;
     const outName = a.outputs?.[l.origin_slot]?.name;
     const inName = b.inputs?.[l.target_slot]?.name;
     return outName === "OUT" && inName === "inp";
@@ -544,14 +545,14 @@ function _installHideLinksPatch() {
       if (!n || !_isGetterNode(n)) continue;
       const inputs = n.inputs || [];
       // for (let j = 0; j < inputs.length; j++) {
-        const inp = inputs[0];
-        if (!inp || inp.name !== "inp") continue;
-        const linkId = inp.link;
-        if (linkId == null) continue;
-        if (_isHiddenLink(g, linkId, n.id)) {
-          saved.push([n, 0, linkId]);
-          inp.link = null;
-        }
+      const inp = inputs[0];
+      if (!inp || inp.name !== "inp") continue;
+      const linkId = inp.link;
+      if (linkId == null) continue;
+      if (_isHiddenLink(g, linkId, n.id)) {
+        saved.push([n, 0, linkId]);
+        inp.link = null;
+      }
       // }
     }
 
@@ -694,7 +695,7 @@ function cleanupBrokenLinks(graph) {
     const targetOk = (tid !== null && tid !== undefined && tid !== -1 && graph.getNodeById?.(tid));
 
     if (!originOk || !targetOk) {
-      try { graph.removeLink(id); } catch (_) {}
+      try { graph.removeLink(id); } catch (_) { }
 
       // fallback hard delete (на случай если removeLink не удалил)
       if (graph.links && graph.links[id]) delete graph.links[id];
@@ -728,8 +729,8 @@ function cleanupBrokenLinks(graph) {
     }
   }
 
-  try { graph.setDirtyCanvas?.(true, true); } catch (_) {}
-  try { app?.canvas?.setDirty?.(true, true); } catch (_) {}
+  try { graph.setDirtyCanvas?.(true, true); } catch (_) { }
+  try { app?.canvas?.setDirty?.(true, true); } catch (_) { }
 
   return { scanned: ids.length, removed };
 }
@@ -757,8 +758,15 @@ function ensureGetterLinkedToSetter(node) {
 
     if (existingLinkId != null && g.links && g.links[existingLinkId]) {
       const l = g.links[existingLinkId];
+      const bad = (l.target_id == null || l.target_id === -1 || l.target_id !== node.id || l.target_slot !== inIdx);
+      if (bad) { try { g.removeLink(existingLinkId); } catch (_) { } }
       const fromNode = g.getNodeById(l.origin_id);
-      if (fromNode && fromNode.id === setter.id && l.origin_slot === outIdx) {
+      if (
+        fromNode && fromNode.id === setter.id &&
+        l.origin_slot === outIdx &&
+        l.target_id === node.id &&
+        l.target_slot === inIdx
+      ) {
         _hideLinkInGraph(g, existingLinkId);
         return;
       }
@@ -854,7 +862,7 @@ app.registerExtension({
     try { _installGraphAddPatch(); } catch (_) { }
     const nodes = app.graph?._nodes || [];
     const names = collectSetterNames(app.graph);
-     try { cleanupBrokenLinks(app.graph); } catch (e) { console.warn("[AK] cleanupBrokenLinks failed", e); }
+    //  try { cleanupBrokenLinks(app.graph); } catch (e) { console.warn("[AK] cleanupBrokenLinks failed", e); }
     for (const node of nodes) {
       if (_isSetterNode(node)) {
 
