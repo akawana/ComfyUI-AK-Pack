@@ -107,6 +107,7 @@ function injectIconStyle() {
     "background-repeat:no-repeat;" +
     "background-position:center;" +
     "background-size:18px 18px;" +
+    "display: inline-block;" +
     "width:1.2em;" +
     "height:1.2em;" +
     "}" +

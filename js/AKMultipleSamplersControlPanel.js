@@ -11,7 +11,7 @@ const ICON_URL_ON = new URL("./img/i_toolbal_control_on.png", import.meta.url).t
 
 const STORE_KEY = "ak_multiple_samplers_control_panel";
 
-const SETTINGS_ENABLE_ID = "A⁠K.MultipleSamplersControl.Enable";
+// const SETTINGS_ENABLE_ID = "AK.MultipleSamplersControl.Enable";
 const ENABLE_STYLE_ID = "ak-mscp-enabled-visibility-style";
 
 function getUiSettings() {
@@ -23,7 +23,7 @@ function readEnableSettingFallback() {
     const raw = window.localStorage.getItem(SETTINGS_ENABLE_ID);
     if (raw === "true") return true;
     if (raw === "false") return false;
-  } catch (_) {}
+  } catch (_) { }
   return true;
 }
 
@@ -34,28 +34,9 @@ function isFeatureEnabled() {
     try {
       const v = getSetting(SETTINGS_ENABLE_ID);
       if (typeof v === "boolean") return v;
-    } catch (_) {}
+    } catch (_) { }
   }
   return readEnableSettingFallback();
-}
-
-function ensureEnableSettingRegistered(applyFn) {
-  const settings = getUiSettings();
-  const addSetting = typeof settings?.addSetting === "function" ? settings.addSetting.bind(settings) : null;
-  if (!addSetting) return;
-
-  try {
-    addSetting({
-      id: SETTINGS_ENABLE_ID,
-      name: "Enable",
-      type: "boolean",
-      defaultValue: true,
-      category: ["AK", "Multiple Samplers Control"],
-      onChange: (v) => {
-        try { applyFn(v === true); } catch (_) {}
-      },
-    });
-  } catch (_) {}
 }
 
 function applyEnabledState(enabled) {
@@ -197,6 +178,7 @@ function injectIconStyle() {
       background-size: 18px 18px;
       width: 1.2em;
       height: 1.2em;
+      display: inline-block;
     }
     .${TAB_ID}-tab-button:hover .side-bar-button-icon.${ICON_CLASS} {
       background-image: url("${ICON_URL_ON}");
@@ -227,15 +209,15 @@ function closeThisTab() {
 function renderPanel(el) {
   el.innerHTML = "";
 
-if (!isFeatureEnabled()) {
-  const msg = document.createElement("div");
-  msg.style.padding = "12px 10px";
-  msg.style.fontSize = "13px";
-  msg.style.opacity = "0.9";
-  msg.textContent = "Disabled. Enable it in Settings: AK → Multiple Samplers Control → Enable.";
-  el.appendChild(msg);
-  return;
-}
+  if (!isFeatureEnabled()) {
+    const msg = document.createElement("div");
+    msg.style.padding = "12px 10px";
+    msg.style.fontSize = "13px";
+    msg.style.opacity = "0.9";
+    msg.textContent = "Disabled. Enable it in Settings: AK → Multiple Samplers Control → Enable.";
+    el.appendChild(msg);
+    return;
+  }
 
 
   const header = document.createElement("div");
@@ -326,6 +308,20 @@ if (!isFeatureEnabled()) {
   setActive("control");
 }
 
+function registerSettings(applyFn) {
+  const S = app.ui.settings;
+
+  S.addSetting({
+    id: "AK.MultipleSamplersControl_Enable",
+    name: "Enable panel:",
+    type: "boolean",
+    defaultValue: true,
+    category: ["AK", "Multiple Samplers Control", "Multiple Samplers Control"],
+    onChange: (newVal, oldVal) => {applyFn(newVal === true); }
+
+  });
+}
+
 app.registerExtension({
   name: "AK.MultipleSamplersControlPanel",
   async setup() {
@@ -334,7 +330,7 @@ app.registerExtension({
     const em = app?.extensionManager;
     if (!em?.registerSidebarTab) return;
 
-    ensureEnableSettingRegistered(applyEnabledState);
+    registerSettings(applyEnabledState);
     injectIconStyle();
 
     em.registerSidebarTab({
