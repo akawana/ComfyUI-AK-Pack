@@ -520,6 +520,7 @@ function _installHideLinksPatch() {
   _akLinksHideInstalled = true;
 
   function _isHiddenLink(graph, linkId, getterNodeId) {
+    // return false;
     const l = graph?.links?.[linkId];
     if (!l) return false;
     const a = graph.getNodeById(l.origin_id);
@@ -672,6 +673,66 @@ function _installGraphAddPatch() {
   _akGraphAddPatched = true;
 }
 
+function cleanupBrokenLinks(graph) {
+  if (!graph) return { scanned: 0, removed: 0 };
+
+  const links = graph.links || {};
+  const ids = Object.keys(links)
+    .map(k => Number(k))
+    .filter(n => Number.isFinite(n));
+
+  let removed = 0;
+
+  for (const id of ids) {
+    const l = links[id];
+    if (!l) continue;
+
+    const oid = l.origin_id;
+    const tid = l.target_id;
+
+    const originOk = (oid !== null && oid !== undefined && graph.getNodeById?.(oid));
+    const targetOk = (tid !== null && tid !== undefined && tid !== -1 && graph.getNodeById?.(tid));
+
+    if (!originOk || !targetOk) {
+      try { graph.removeLink(id); } catch (_) {}
+
+      // fallback hard delete (на случай если removeLink не удалил)
+      if (graph.links && graph.links[id]) delete graph.links[id];
+
+      removed++;
+    }
+  }
+
+  // 2nd pass: scrub stale references from nodes
+  const live = new Set(
+    Object.keys(graph.links || {})
+      .map(k => Number(k))
+      .filter(n => Number.isFinite(n))
+  );
+
+  const nodes = graph._nodes || [];
+  for (const n of nodes) {
+    if (Array.isArray(n?.outputs)) {
+      for (const out of n.outputs) {
+        if (out && Array.isArray(out.links)) {
+          out.links = out.links.filter(id => live.has(id));
+        }
+      }
+    }
+    if (Array.isArray(n?.inputs)) {
+      for (const inp of n.inputs) {
+        if (inp && inp.link != null && !live.has(inp.link)) {
+          inp.link = null;
+        }
+      }
+    }
+  }
+
+  try { graph.setDirtyCanvas?.(true, true); } catch (_) {}
+  try { app?.canvas?.setDirty?.(true, true); } catch (_) {}
+
+  return { scanned: ids.length, removed };
+}
 
 
 function ensureGetterLinkedToSetter(node) {
@@ -793,7 +854,7 @@ app.registerExtension({
     try { _installGraphAddPatch(); } catch (_) { }
     const nodes = app.graph?._nodes || [];
     const names = collectSetterNames(app.graph);
-
+     try { cleanupBrokenLinks(app.graph); } catch (e) { console.warn("[AK] cleanupBrokenLinks failed", e); }
     for (const node of nodes) {
       if (_isSetterNode(node)) {
 
