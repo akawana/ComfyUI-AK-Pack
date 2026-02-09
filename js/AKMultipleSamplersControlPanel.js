@@ -20,7 +20,7 @@ function getUiSettings() {
 
 function readEnableSettingFallback() {
   try {
-    const raw = window.localStorage.getItem(SETTINGS_ENABLE_ID);
+    const raw = window.localStorage.getItem("AK.MultipleSamplersControl_Enable");
     if (raw === "true") return true;
     if (raw === "false") return false;
   } catch (_) { }
@@ -32,7 +32,7 @@ function isFeatureEnabled() {
   const getSetting = typeof settings?.getSettingValue === "function" ? settings.getSettingValue.bind(settings) : null;
   if (getSetting) {
     try {
-      const v = getSetting(SETTINGS_ENABLE_ID);
+      const v = getSetting("AK.MultipleSamplersControl_Enable");
       if (typeof v === "boolean") return v;
     } catch (_) { }
   }
