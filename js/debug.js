@@ -1,4 +1,4 @@
-const AKXZ_DEBUG = false;
+const AKXZ_DEBUG = true;
 
 const ORIGINAL_LOG = console.log;
 const ORIGINAL_WARN = console.warn;

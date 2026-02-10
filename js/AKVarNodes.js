@@ -143,7 +143,6 @@ function ensureVarNameWidget(node, vals) {
   w.options = w.options || {};
   w.options.values = values;
 
-  // восстановить выбранное
   try {
     const saved = (typeof node.properties?.var_name === "string") ? node.properties.var_name.trim() : "";
     if (saved && w.value !== saved) w.value = saved;
@@ -178,7 +177,6 @@ function applyNamesToNode(node, names) {
       return;
     }
 
-    // console.log("[AK] applyNamesToNode: updating combo for node", node.id, "prevKey:", prevKey, "newKey:", newKey, "prevSel:", prevSel, "curSel:", curSel0);
 
     // If dropdown is created before setters are hooked, values can be empty on first paint.
     // Request a combo refresh once (async) without creating a sync recursion loop.
@@ -286,11 +284,9 @@ function hookSetter(node, context = "") {
   try { _ensureUniqueSetterVarName(node, true); } catch (_) { }
 
 
-  // try { _syncNodeTitleToVarName(node); } catch (_) { }
 
   const prevCb = w.callback;
   w.callback = function (v) {
-    // w._akPrev = (typeof w.value === "string") ? w.value : "";
 
     const r = prevCb ? prevCb.call(this, v) : undefined;
 
@@ -832,12 +828,6 @@ app.registerExtension({
       try { _ensureUniqueSetterVarName(node, true); } catch (_) { }
       try { scheduleUpdateCombos(true); } catch (_) { }
       try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
-      // _installHideSocketsPatch();
-      // try { _syncNodeTitleToVarName(node); } catch (_) { }
-      // try { _colorizeSetterGetterNodes(node); } catch (_) { }
-      // try { updateCombos(app.graph, false); } catch (_) { }
-
-      // try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
     }
 
     if (_isGetterNode(node)) {
@@ -848,13 +838,8 @@ app.registerExtension({
       try { _syncNodeTitleToVarName(node); } catch (_) { }
       try { ensureGetterLinkedToSetter(node); } catch (_) { }
       try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
-      // try { _installHideSocketsPatch(); } catch (_) { }
-      // try { _syncNodeTitleToVarName(node); } catch (_) { }
-      // try { updateCombos(app.graph); } catch (_) { }
-      // try { scheduleUpdateCombos(true); } catch (_) { }
 
     }
-    // try { _installHideLinksPatch(); } catch (_) { }
 
   },
 
