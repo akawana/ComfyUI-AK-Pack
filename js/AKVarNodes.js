@@ -184,6 +184,9 @@ function applyNamesToNode(node, names) {
       console.warn("[AK] applyNamesToNode: empty values, scheduling updateCombos refresh");
       globalThis._akVarNamesRefreshQueued = true;
     }
+
+    ensureVarNameWidget(node, vals);
+
     // We keep var_name as hidden STRING in Python, so we must render dropdown in JS.
     let w = getWidget(node, "var_name");
 
@@ -262,7 +265,6 @@ function updateCombos(graph, force = false) {
     if (!n) continue;
     if (n.type !== "Getter" && n.type !== "Overrider") continue;
     applyNamesToNode(n, names);
-    ensureVarNameWidget(n, names);
   }
 
   // app.canvas?.setDirty(true, true);
@@ -670,66 +672,66 @@ function _installGraphAddPatch() {
   _akGraphAddPatched = true;
 }
 
-function cleanupBrokenLinks(graph) {
-  if (!graph) return { scanned: 0, removed: 0 };
+// function cleanupBrokenLinks(graph) {
+//   if (!graph) return { scanned: 0, removed: 0 };
 
-  const links = graph.links || {};
-  const ids = Object.keys(links)
-    .map(k => Number(k))
-    .filter(n => Number.isFinite(n));
+//   const links = graph.links || {};
+//   const ids = Object.keys(links)
+//     .map(k => Number(k))
+//     .filter(n => Number.isFinite(n));
 
-  let removed = 0;
+//   let removed = 0;
 
-  for (const id of ids) {
-    const l = links[id];
-    if (!l) continue;
+//   for (const id of ids) {
+//     const l = links[id];
+//     if (!l) continue;
 
-    const oid = l.origin_id;
-    const tid = l.target_id;
+//     const oid = l.origin_id;
+//     const tid = l.target_id;
 
-    const originOk = (oid !== null && oid !== undefined && graph.getNodeById?.(oid));
-    const targetOk = (tid !== null && tid !== undefined && tid !== -1 && graph.getNodeById?.(tid));
+//     const originOk = (oid !== null && oid !== undefined && graph.getNodeById?.(oid));
+//     const targetOk = (tid !== null && tid !== undefined && tid !== -1 && graph.getNodeById?.(tid));
 
-    if (!originOk || !targetOk) {
-      try { graph.removeLink(id); } catch (_) { }
+//     if (!originOk || !targetOk) {
+//       try { graph.removeLink(id); } catch (_) { }
 
-      // fallback hard delete (на случай если removeLink не удалил)
-      if (graph.links && graph.links[id]) delete graph.links[id];
+//       // fallback hard delete (на случай если removeLink не удалил)
+//       if (graph.links && graph.links[id]) delete graph.links[id];
 
-      removed++;
-    }
-  }
+//       removed++;
+//     }
+//   }
 
-  // 2nd pass: scrub stale references from nodes
-  const live = new Set(
-    Object.keys(graph.links || {})
-      .map(k => Number(k))
-      .filter(n => Number.isFinite(n))
-  );
+//   // 2nd pass: scrub stale references from nodes
+//   const live = new Set(
+//     Object.keys(graph.links || {})
+//       .map(k => Number(k))
+//       .filter(n => Number.isFinite(n))
+//   );
 
-  const nodes = graph._nodes || [];
-  for (const n of nodes) {
-    if (Array.isArray(n?.outputs)) {
-      for (const out of n.outputs) {
-        if (out && Array.isArray(out.links)) {
-          out.links = out.links.filter(id => live.has(id));
-        }
-      }
-    }
-    if (Array.isArray(n?.inputs)) {
-      for (const inp of n.inputs) {
-        if (inp && inp.link != null && !live.has(inp.link)) {
-          inp.link = null;
-        }
-      }
-    }
-  }
+//   const nodes = graph._nodes || [];
+//   for (const n of nodes) {
+//     if (Array.isArray(n?.outputs)) {
+//       for (const out of n.outputs) {
+//         if (out && Array.isArray(out.links)) {
+//           out.links = out.links.filter(id => live.has(id));
+//         }
+//       }
+//     }
+//     if (Array.isArray(n?.inputs)) {
+//       for (const inp of n.inputs) {
+//         if (inp && inp.link != null && !live.has(inp.link)) {
+//           inp.link = null;
+//         }
+//       }
+//     }
+//   }
 
-  try { graph.setDirtyCanvas?.(true, true); } catch (_) { }
-  try { app?.canvas?.setDirty?.(true, true); } catch (_) { }
+//   try { graph.setDirtyCanvas?.(true, true); } catch (_) { }
+//   try { app?.canvas?.setDirty?.(true, true); } catch (_) { }
 
-  return { scanned: ids.length, removed };
-}
+//   return { scanned: ids.length, removed };
+// }
 
 
 function ensureGetterLinkedToSetter(node) {
@@ -816,62 +818,107 @@ function hookGetter(node, context = "") {
 
 }
 
+function setupSetter(node, ctx = "") {
+  if (!node || node._akSetterSetupDone) return;
+  node._akSetterSetupDone = true;
+
+  hookSetter(node, ctx);
+  _ensureUniqueSetterVarName(node, true);
+  _syncNodeTitleToVarName(node);
+  _colorizeSetterGetterNodes(node, "setter");
+}
+
+function setupGetter(node, names, ctx = "") {
+  if (!node || node._akGetterSetupDone) return;
+  node._akGetterSetupDone = true;
+
+  ensureVarNameWidget(node, names);
+  initGetter(node);
+  hookGetter(node, ctx);
+  ensureGetterLinkedToSetter(node);
+  _syncNodeTitleToVarName(node);
+  _colorizeSetterGetterNodes(node, "getter");
+}
+
+
 app.registerExtension({
   name: "AK.VarNodes.ComboSync",
 
-  async nodeCreated(node) {
-    try { _installGraphAddPatch(); } catch (_) { }
-    if (!node) return;
+  // async nodeCreated(node) {
+  //   try { _installGraphAddPatch(); } catch (_) { }
+  //   if (!node) return;
 
-    if (_isSetterNode(node)) {
-      try { hookSetter(node, "nodeCreated"); } catch (_) { }
-      try { _ensureUniqueSetterVarName(node, true); } catch (_) { }
-      try { scheduleUpdateCombos(true); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
-    }
+  //   if (_isSetterNode(node)) {
+  //     try { hookSetter(node, "nodeCreated"); } catch (_) { }
+  //     try { _ensureUniqueSetterVarName(node, true); } catch (_) { }
+  //     try { scheduleUpdateCombos(true); } catch (_) { }
+  //     try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
+  //   }
 
-    if (_isGetterNode(node)) {
+  //   if (_isGetterNode(node)) {
+  //     const names = collectSetterNames(app.graph);
+  //     ensureVarNameWidget(node, names);
+  //     try { initGetter(node); } catch (_) { }
+  //     try { hookGetter(node, "nodeCreated"); } catch (_) { }
+  //     try { _syncNodeTitleToVarName(node); } catch (_) { }
+  //     try { ensureGetterLinkedToSetter(node); } catch (_) { }
+  //     try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
+
+  //   }
+  nodeCreated(node) {
+    _installGraphAddPatch(); // 1 раз
+
+    if (_isSetterNode(node)) setupSetter(node, "nodeCreated");
+    else if (_isGetterNode(node) || node.type === "Overrider") {
       const names = collectSetterNames(app.graph);
-      ensureVarNameWidget(node, names);
-      try { initGetter(node); } catch (_) { }
-      try { hookGetter(node, "nodeCreated"); } catch (_) { }
-      try { _syncNodeTitleToVarName(node); } catch (_) { }
-      try { ensureGetterLinkedToSetter(node); } catch (_) { }
-      try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
-
+      setupGetter(node, names, "nodeCreated");
     }
-
   },
+  afterConfigureGraph() {
+    _installGraphAddPatch();
+    _installHideSocketsPatch();
 
-  async afterConfigureGraph() {
-    try { _installGraphAddPatch(); } catch (_) { }
-    const nodes = app.graph?._nodes || [];
     const names = collectSetterNames(app.graph);
-    //  try { cleanupBrokenLinks(app.graph); } catch (e) { console.warn("[AK] cleanupBrokenLinks failed", e); }
-    for (const node of nodes) {
-      if (_isSetterNode(node)) {
 
-        hookSetter(node, "afterConfigureGraph");
-        try { _ensureUniqueSetterVarName(node, true); } catch (_) { }
-        // try { _installHideSocketsPatch(); } catch (_) { }
-        try { _syncNodeTitleToVarName(node); } catch (_) { }
-        try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
-        try { _installHideSocketsPatch(); } catch (_) { }
-
-      }
-
-      if (_isGetterNode(node)) {
-        ensureVarNameWidget(node, names);
-        initGetter(node);
-        hookGetter(node, "afterConfigureGraph");
-        try { ensureGetterLinkedToSetter(node); } catch (_) { }
-        try { _syncNodeTitleToVarName(node); } catch (_) { }
-        try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
-        try { _installHideSocketsPatch(); } catch (_) { }
-      }
+    for (const n of app.graph._nodes) {
+      if (_isSetterNode(n)) setupSetter(n, "afterConfigureGraph");
+      else if (_isGetterNode(n) || n.type === "Overrider") setupGetter(n, names, "afterConfigureGraph");
     }
-    scheduleUpdateCombos(true);
 
+    scheduleUpdateCombos(true);
   }
+
+
+
+  // async afterConfigureGraph() {
+  //   try { _installGraphAddPatch(); } catch (_) { }
+  //   const nodes = app.graph?._nodes || [];
+  //   const names = collectSetterNames(app.graph);
+  //   //  try { cleanupBrokenLinks(app.graph); } catch (e) { console.warn("[AK] cleanupBrokenLinks failed", e); }
+  //   for (const node of nodes) {
+  //     if (_isSetterNode(node)) {
+
+  //       hookSetter(node, "afterConfigureGraph");
+  //       try { _ensureUniqueSetterVarName(node, true); } catch (_) { }
+  //       // try { _installHideSocketsPatch(); } catch (_) { }
+  //       try { _syncNodeTitleToVarName(node); } catch (_) { }
+  //       try { _colorizeSetterGetterNodes(node, "Setter"); } catch (_) { }
+  //       try { _installHideSocketsPatch(); } catch (_) { }
+
+  //     }
+
+  //     if (_isGetterNode(node)) {
+  //       ensureVarNameWidget(node, names);
+  //       initGetter(node);
+  //       hookGetter(node, "afterConfigureGraph");
+  //       try { ensureGetterLinkedToSetter(node); } catch (_) { }
+  //       try { _syncNodeTitleToVarName(node); } catch (_) { }
+  //       try { _colorizeSetterGetterNodes(node, "Getter"); } catch (_) { }
+  //       try { _installHideSocketsPatch(); } catch (_) { }
+  //     }
+  //   }
+  //   scheduleUpdateCombos(true);
+
+  // }
 
 });
