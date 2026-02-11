@@ -1,5 +1,25 @@
 import { app } from "../../../scripts/app.js";
 
+function getNodeMode(node) {
+    const flags = node.flags || {};
+    const mode = node.mode ?? 0;
+
+    const isMuted =
+        mode === 2 ||
+        !!flags.muted ||
+        !!flags.mute;
+
+    const isBypassed =
+        mode === 4 ||
+        !!flags.bypassed ||
+        !!flags.bypass;
+
+    if (isMuted) return 2;
+    if (isBypassed) return 4;
+    return 0;
+}
+
+
 function isNodeActive(node) {
     const flags = node.flags || {};
     const mode = node.mode ?? 0;
@@ -50,34 +70,69 @@ function findGroupOfNode(graph, node) {
     return null;
 }
 
-function isGroupActive(graph, group) {
+// function isGroupActive(graph, group) {
+//     const nodesInGroup = getNodesInGroup(graph, group);
+//     for (const n of nodesInGroup) {
+//         if (!n) continue;
+//         if (n.comfyClass === "RepeatGroupState") continue;
+//         if (isNodeActive(n)) {
+//             return true;
+//         }
+//     }
+//     return false;
+// }
+
+function getGroupMode(graph, group) {
     const nodesInGroup = getNodesInGroup(graph, group);
+
+    let hasBypass = false;
+    let hasMute = false;
+
     for (const n of nodesInGroup) {
         if (!n) continue;
         if (n.comfyClass === "RepeatGroupState") continue;
-        if (isNodeActive(n)) {
-            return true;
-        }
+
+        const m = getNodeMode(n);
+        if (m === 0) return 0;      // если есть хотя бы один активный — группа активна
+        if (m === 4) hasBypass = true;
+        if (m === 2) hasMute = true;
     }
-    return false;
+
+    if (hasBypass) return 4;
+    if (hasMute) return 2;
+
+    // пустая группа (или только RepeatGroupState) — считаем Mute
+    return 2;
 }
 
-function setNodeEnabled(node, enabled) {
+function setNodeMode(node, mode) {
     node.flags = node.flags || {};
 
-    if (enabled) {
+    if (mode === 0) {
         node.mode = 0;
         delete node.flags.muted;
         delete node.flags.mute;
         delete node.flags.bypassed;
         delete node.flags.bypass;
-    } else {
-        node.mode = 2;
-        node.flags.muted = true;
-        delete node.flags.bypassed;
-        delete node.flags.bypass;
+        return;
     }
+
+    if (mode === 4) {
+        node.mode = 4;
+        node.flags.bypassed = true;
+        delete node.flags.muted;
+        delete node.flags.mute;
+        delete node.flags.bypass;
+        return;
+    }
+
+    // mode === 2
+    node.mode = 2;
+    node.flags.muted = true;
+    delete node.flags.bypassed;
+    delete node.flags.bypass;
 }
+
 
 function updateRepeatGroupStateNode(graph, node) {
     if (!node.widgets) return;
@@ -97,12 +152,11 @@ function updateRepeatGroupStateNode(graph, node) {
 
     if (matchedGroups.length === 0) return;
 
-    let anyTargetGroupActive = false;
+    let targetMode = 2; 
     for (const g of matchedGroups) {
-        if (isGroupActive(graph, g)) {
-            anyTargetGroupActive = true;
-            break;
-        }
+        const m = getGroupMode(graph, g);
+        if (m === 0) { targetMode = 0; break; } 
+        if (m === 4) targetMode = 4;            
     }
 
     const myGroup = findGroupOfNode(graph, node);
@@ -111,7 +165,7 @@ function updateRepeatGroupStateNode(graph, node) {
     const myGroupNodes = getNodesInGroup(graph, myGroup);
     for (const n of myGroupNodes) {
         if (!n) continue;
-        setNodeEnabled(n, anyTargetGroupActive);
+        setNodeMode(n, targetMode);
     }
 }
 
