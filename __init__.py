@@ -60,6 +60,11 @@ from .nodes.AKKSamplerSettings import NODE_DISPLAY_NAME_MAPPINGS as AKKSamplerSe
 from .nodes.AKProjectSettingsOut import NODE_CLASS_MAPPINGS as AKProjectSettingsOut_STATE_MAPPINGS
 from .nodes.AKProjectSettingsOut import NODE_DISPLAY_NAME_MAPPINGS as AKProjectSettingsOut_STATE_DISPLAY
 
+from .nodes.AKMatchColor import NODE_CLASS_MAPPINGS as AKMatchColor_STATE_MAPPINGS
+from .nodes.AKMatchColor import NODE_DISPLAY_NAME_MAPPINGS as AKMatchColor_STATE_DISPLAY
+
+
+
 NODE_CLASS_MAPPINGS = {
     **AKIndexMultiple_MAPPINGS,
     **AKCLIPEncodeMultiple_MAPPINGS,
@@ -81,6 +86,7 @@ NODE_CLASS_MAPPINGS = {
     **AK_CONTROL_SAMPLERS_COLOR_STATE_MAPPINGS,
     **AKKSamplerSettings_STATE_MAPPINGS,
     **AKProjectSettingsOut_STATE_MAPPINGS,
+    **AKMatchColor_STATE_MAPPINGS,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -104,6 +110,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **AK_CONTROL_SAMPLERS_COLOR_STATE_DISPLAY,
     **AKKSamplerSettings_STATE_DISPLAY,
     **AKProjectSettingsOut_STATE_DISPLAY,
+    **AKMatchColor_STATE_DISPLAY,
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
