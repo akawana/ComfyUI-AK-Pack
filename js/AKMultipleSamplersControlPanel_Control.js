@@ -5,6 +5,10 @@ const STORE_KEY = "ak_multiple_samplers_control_panel";
 
 const DEBUG_LOGS = false;
 
+const FIELD_ALIASES = {
+  seed: ["seed", "seed_value"],
+};
+
 const FIELD_SPECS = [
   { key: "seed", type: "number", step: 1 },
   { key: "steps", type: "number", step: 1 },
@@ -197,11 +201,17 @@ function styleDarkOptions(selectEl) {
 function findWidgetByName(node, name) {
   const ws = node?.widgets;
   if (!Array.isArray(ws)) return null;
+
+  const aliases = FIELD_ALIASES[name] || [name];
+
   for (const w of ws) {
     if (!w) continue;
-    if (w.name === name) return w;
-    if (typeof w.name === "string" && w.name.replace(/\u00A0/g, " ") === name) return w;
+    for (const a of aliases) {
+      if (w.name === a) return w;
+      if (typeof w.name === "string" && w.name.replace(/\u00A0/g, " ") === a) return w;
+    }
   }
+
   return null;
 }
 
