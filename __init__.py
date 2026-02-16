@@ -63,6 +63,11 @@ from .nodes.AKProjectSettingsOut import NODE_DISPLAY_NAME_MAPPINGS as AKProjectS
 from .nodes.AKMatchColor import NODE_CLASS_MAPPINGS as AKMatchColor_STATE_MAPPINGS
 from .nodes.AKMatchColor import NODE_DISPLAY_NAME_MAPPINGS as AKMatchColor_STATE_DISPLAY
 
+from .nodes.AKListLength import NODE_CLASS_MAPPINGS as AKListLength_STATE_MAPPINGS
+from .nodes.AKListLength import NODE_DISPLAY_NAME_MAPPINGS as AKListLength_STATE_DISPLAY
+
+from .nodes.AKMakeListFromAny import NODE_CLASS_MAPPINGS as AKMakeListFromAny_STATE_MAPPINGS
+from .nodes.AKMakeListFromAny import NODE_DISPLAY_NAME_MAPPINGS as AKMakeListFromAny_STATE_DISPLAY
 
 
 NODE_CLASS_MAPPINGS = {
@@ -87,6 +92,8 @@ NODE_CLASS_MAPPINGS = {
     **AKKSamplerSettings_STATE_MAPPINGS,
     **AKProjectSettingsOut_STATE_MAPPINGS,
     **AKMatchColor_STATE_MAPPINGS,
+    **AKListLength_STATE_MAPPINGS,
+    **AKMakeListFromAny_STATE_MAPPINGS,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -111,6 +118,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **AKKSamplerSettings_STATE_DISPLAY,
     **AKProjectSettingsOut_STATE_DISPLAY,
     **AKMatchColor_STATE_DISPLAY,
+    **AKListLength_STATE_DISPLAY,
+    **AKMakeListFromAny_STATE_DISPLAY,
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
