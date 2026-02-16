@@ -10,7 +10,7 @@ class AKListLength:
     RETURN_TYPES = ("INT",)
     RETURN_NAMES = ("length",)
     FUNCTION = "run"
-    CATEGORY = "AK/Utils"
+    CATEGORY = "AK/utils"
 
     def run(self, inp=None):
         if isinstance(inp, list):

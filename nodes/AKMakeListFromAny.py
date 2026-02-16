@@ -12,7 +12,7 @@ class AKMakeListFromAny:
     RETURN_NAMES = ("out_list",)
     OUTPUT_IS_LIST = (True,)
     FUNCTION = "run"
-    CATEGORY = "AK/Utils"
+    CATEGORY = "AK/utils"
 
     def run(self, inp=None, length=1):
         try:
