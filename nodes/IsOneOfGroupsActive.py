@@ -19,7 +19,11 @@ class IsOneOfGroupsActive:
                         "default": False,
                     },
                 ),
-            }
+            },
+            "hidden": {
+                # Provided by ComfyUI at execution time; used to inspect workflow groups.
+                "extra_pnginfo": "EXTRA_PNGINFO",
+            },
         }
 
     RETURN_TYPES = ("BOOLEAN",)
@@ -28,7 +32,7 @@ class IsOneOfGroupsActive:
     CATEGORY = "AK/logic"
 
     @classmethod
-    def IS_CHANGED(cls, group_name_contains, active_state):
+    def IS_CHANGED(cls, group_name_contains, active_state, extra_pnginfo=None):
         return float("nan")
 
     def _parse_group_contains_list(self, group_name_contains: str):
@@ -44,16 +48,117 @@ class IsOneOfGroupsActive:
         parts = [p.strip() for p in group_name_contains.split(",")]
         return [p for p in parts if p]
 
-    def pass_state(self, group_name_contains, active_state):
-        # NOTE:
-        # This node historically acted as a simple boolean pass-through.
-        # We keep that behavior intact, but also support a comma-separated list
-        # in `group_name_contains`. If `active_state` arrives as an iterable of
-        # booleans (e.g. one per group from upstream logic), we return True
-        # if at least one item is True.
-        _ = self._parse_group_contains_list(group_name_contains)
+    def _iter_workflow_groups(self, extra_pnginfo):
+        """Yield workflow group dicts from EXTRA_PNGINFO if present."""
+        if not isinstance(extra_pnginfo, dict):
+            return
+        wf = extra_pnginfo.get("workflow")
+        if not isinstance(wf, dict):
+            return
+        groups = wf.get("groups")
+        if not isinstance(groups, list):
+            return
+        for g in groups:
+            if isinstance(g, dict):
+                yield g
 
-        # If upstream provides multiple boolean states, aggregate them.
+    def _get_group_title(self, group_dict: dict):
+        """Return a group's title/name string in a tolerant way."""
+        for k in ("title", "name", "label"):
+            v = group_dict.get(k)
+            if isinstance(v, str) and v.strip():
+                return v
+        return ""
+
+    def _is_group_marked_disabled(self, group_dict: dict):
+        """Try to read an explicit disabled flag on a group if it exists.
+
+        Different front-end extensions may store this field under different names.
+        """
+        for k in ("disabled", "is_disabled", "isDisabled", "muted", "is_muted", "bypassed", "is_bypassed"):
+            if k in group_dict:
+                return bool(group_dict.get(k))
+        return None  # Unknown
+
+    def _build_node_mode_map(self, extra_pnginfo):
+        """Build {node_id: mode} map from workflow nodes if present."""
+        if not isinstance(extra_pnginfo, dict):
+            return {}
+        wf = extra_pnginfo.get("workflow")
+        if not isinstance(wf, dict):
+            return {}
+        nodes = wf.get("nodes")
+        if not isinstance(nodes, list):
+            return {}
+        out = {}
+        for n in nodes:
+            if not isinstance(n, dict):
+                continue
+            nid = n.get("id")
+            mode = n.get("mode")
+            if isinstance(nid, int):
+                out[nid] = mode
+            elif isinstance(nid, str) and nid.isdigit():
+                out[int(nid)] = mode
+        return out
+
+    def _group_node_ids(self, group_dict: dict):
+        """Return a list of node ids that belong to a group, if available."""
+        for k in ("nodes", "node_ids", "nodeIds"):
+            v = group_dict.get(k)
+            if isinstance(v, list):
+                ids = []
+                for x in v:
+                    if isinstance(x, int):
+                        ids.append(x)
+                    elif isinstance(x, str) and x.isdigit():
+                        ids.append(int(x))
+                return ids
+        return []
+
+    def _is_group_active(self, group_dict: dict, node_mode_map: dict):
+        """Determine whether a group is active.
+
+        Priority:
+        1) If the group has an explicit disabled flag (from some UI extension), use it.
+        2) Otherwise, infer by checking whether the group contains at least one node
+           with mode == 0 (normal/active).
+        """
+        disabled = self._is_group_marked_disabled(group_dict)
+        if disabled is not None:
+            return not disabled
+
+        node_ids = self._group_node_ids(group_dict)
+        if not node_ids:
+            return False
+
+        # ComfyUI/LiteGraph typically uses mode == 0 for normal execution.
+        for nid in node_ids:
+            if node_mode_map.get(nid, 0) == 0:
+                return True
+        return False
+
+    def pass_state(self, group_name_contains, active_state, extra_pnginfo=None):
+        # If EXTRA_PNGINFO is available, compute the result from workflow groups.
+        # Otherwise, keep the historical pass-through behavior based on active_state.
+        tokens = self._parse_group_contains_list(group_name_contains)
+
+        if extra_pnginfo is not None and tokens:
+            node_mode_map = self._build_node_mode_map(extra_pnginfo)
+
+            # If at least one token matches at least one active group -> True.
+            for g in self._iter_workflow_groups(extra_pnginfo):
+                title = self._get_group_title(g)
+                if not title:
+                    continue
+                for t in tokens:
+                    # Keep original "contains" semantics for each comma-separated item.
+                    if t in title:
+                        if self._is_group_active(g, node_mode_map):
+                            return (True,)
+            return (False,)
+
+        # Fallback: preserve old logic.
         if isinstance(active_state, (list, tuple, set)):
             return (any(bool(x) for x in active_state),)
 
