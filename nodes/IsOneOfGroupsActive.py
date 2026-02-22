@@ -40,20 +40,21 @@ class IsOneOfGroupsActive:
         # then return True if at least one element is True.
         if isinstance(active_state, dict):
             # `active_state` is expected to be: { "<group title>": <bool active>, ... }
-            tokens = [t.strip().lower() for t in str(group_name_contains).split(",") if t.strip()]
+            tokens = [t.strip() for t in str(group_name_contains).split(",") if t.strip()]
 
-            # Backward-compatible: if no tokens provided, keep previous behavior (any group is active)
+            # if nothing entered -> keep old behavior
             if not tokens:
                 return (any(bool(v) for v in active_state.values()),)
 
-            # New behavior: if at least one matching group is active -> True
-            for title, is_active in active_state.items():
-                title_l = str(title).lower()
-                if any(tok in title_l for tok in tokens) and bool(is_active):
-                    return (True,)
+            # IMPORTANT: OR-logic across tokens and groups
+            for tok in tokens:
+                tok_l = tok.lower()
+                for title, is_active in active_state.items():
+                    if tok_l in str(title).lower() and bool(is_active):
+                        return (True,)
 
-            return (False,)
-        
+            # only here we may return False
+            return (False,)        
         if isinstance(active_state, (list, tuple, set)):
             return (any(bool(x) for x in active_state),)
 
