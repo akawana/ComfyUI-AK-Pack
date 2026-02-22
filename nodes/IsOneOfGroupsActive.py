@@ -143,20 +143,38 @@ class IsOneOfGroupsActive:
         # Otherwise, keep the historical pass-through behavior based on active_state.
         tokens = self._parse_group_contains_list(group_name_contains)
 
+        # Backward compatible: the original widget semantics were "contains" (substring match).
+        # Now we support a comma-separated list, where each item is also matched by substring.
         if extra_pnginfo is not None and tokens:
             node_mode_map = self._build_node_mode_map(extra_pnginfo)
+
+            matched_any_group = False
 
             # If at least one token matches at least one active group -> True.
             for g in self._iter_workflow_groups(extra_pnginfo):
                 title = self._get_group_title(g)
                 if not title:
                     continue
+
+                title_l = title.lower()
+
                 for t in tokens:
-                    # Keep original "contains" semantics for each comma-separated item.
-                    if t in title:
+                    t_l = t.lower()
+                    if not t_l:
+                        continue
+
+                    if t_l in title_l:
+                        matched_any_group = True
                         if self._is_group_active(g, node_mode_map):
                             return (True,)
-            return (False,)
+
+            # If we matched at least one group but none are active -> False.
+            if matched_any_group:
+                return (False,)
+
+            # If no group matched at all, preserve the old fallback behavior.
+            # (Historically this node could act as a simple pass-through for active_state.)
+            # Fall through to the old logic below.
 
         # Fallback: preserve old logic.
         if isinstance(active_state, (list, tuple, set)):
