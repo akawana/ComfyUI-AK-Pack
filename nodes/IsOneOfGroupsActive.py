@@ -32,33 +32,35 @@ class IsOneOfGroupsActive:
         return float("nan")
 
     def pass_state(self, group_name_contains, active_state):
-        # Backward compatible behavior:
-        # Historically this node was a simple pass-through for `active_state`.
-        #
-        # Extension:
-        # If some upstream logic provides `active_state` as a list/tuple/set (e.g. one boolean per group),
-        # then return True if at least one element is True.
-        if isinstance(active_state, dict):
-            # `active_state` is expected to be: { "<group title>": <bool active>, ... }
-            tokens = [t.strip() for t in str(group_name_contains).split(",") if t.strip()]
-
-            # if nothing entered -> keep old behavior
-            if not tokens:
-                return (any(bool(v) for v in active_state.values()),)
-
-            # IMPORTANT: OR-logic across tokens and groups
-            for tok in tokens:
-                tok_l = tok.lower()
-                for title, is_active in active_state.items():
-                    if tok_l in str(title).lower() and bool(is_active):
-                        return (True,)
-
-            # only here we may return False
-            return (False,)        
-        if isinstance(active_state, (list, tuple, set)):
-            return (any(bool(x) for x in active_state),)
-
         return (bool(active_state),)
+    # def pass_state(self, group_name_contains, active_state):
+    #     # Backward compatible behavior:
+    #     # Historically this node was a simple pass-through for `active_state`.
+    #     #
+    #     # Extension:
+    #     # If some upstream logic provides `active_state` as a list/tuple/set (e.g. one boolean per group),
+    #     # then return True if at least one element is True.
+    #     if isinstance(active_state, dict):
+    #         # `active_state` is expected to be: { "<group title>": <bool active>, ... }
+    #         tokens = [t.strip() for t in str(group_name_contains).split(",") if t.strip()]
+
+    #         # if nothing entered -> keep old behavior
+    #         if not tokens:
+    #             return (any(bool(v) for v in active_state.values()),)
+
+    #         # IMPORTANT: OR-logic across tokens and groups
+    #         for tok in tokens:
+    #             tok_l = tok.lower()
+    #             for title, is_active in active_state.items():
+    #                 if tok_l in str(title).lower() and bool(is_active):
+    #                     return (True,)
+
+    #         # only here we may return False
+    #         return (False,)        
+    #     if isinstance(active_state, (list, tuple, set)):
+    #         return (any(bool(x) for x in active_state),)
+
+    #     return (bool(active_state),)
 
 
 NODE_CLASS_MAPPINGS = {

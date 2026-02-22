@@ -53,15 +53,21 @@ function updateIsOneOfGroupsActiveNode(graph, node) {
         activeWidget.computeSize = () => [0, 0];
     }
 
-    const searchText = (patternWidget?.value || "").trim();
+    const rawText = (patternWidget?.value || "");
     const groups = graph._groups || [];
+
+    // Support multiple comma-separated patterns: "A, B, C"
+    const tokens = String(rawText)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
     const matchedGroups = groups.filter((g) => {
         const title = g.title || "";
-        if (!searchText) return false;
-        return title.includes(searchText);
+        if (tokens.length === 0) return false;
+        // substring match: if ANY token matches the group title -> matched
+        return tokens.some((t) => title.includes(t));
     });
-
     let anyActive = false;
 
     if (matchedGroups.length > 0) {
