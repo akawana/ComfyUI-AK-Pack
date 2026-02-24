@@ -118,6 +118,8 @@ function findNodesFromNodesList(nodesListText) {
   const out = [];
 
   for (const tok of tokens) {
+console.log("Processing token:", tok);
+
     if (isIntToken(tok)) {
       const id = Number(tok);
       const n = byId.get(id);
@@ -131,21 +133,33 @@ function findNodesFromNodesList(nodesListText) {
     const sub = tok.toLowerCase();
 
     const matches = [];
-    for (const n of graph._nodes) {
-      if (!n?.title) continue;
-      if (!n.title.toLowerCase().includes(sub)) continue;
-      if (seen.has(n.id)) continue;
-      matches.push(n);
-    }
+    for (const n of nodes) {
+      const t = String(n?.title ?? n?.type ?? n?.constructor?.title ?? "");
 
+      // console.log("Checking node", n?.id, "with title/type", t, "against token", tok);
+      if (!t) continue;
+      if (!t.toLowerCase().includes(sub)) continue;
+      if (seen.has(n.id)) continue;
+      // matches.push(n);
+      matches.push({ node: n, t });
+    }
     matches.sort((a, b) =>
-      naturalCompare(a.title, b.title) || (a.id - b.id)
+      naturalCompare(a.t, b.t) || ((a.node?.id ?? 0) - (b.node?.id ?? 0))
     );
 
-    for (const n of matches) {
+    for (const m of matches) {
+      const n = m.node;
       seen.add(n.id);
-      out.push(n);
+      out.push({ node: n, order: out.length });
     }
+    // matches.sort((a, b) =>
+    //   naturalCompare(a.title, b.title) || (a.id - b.id)
+    // );
+
+    // for (const n of matches) {
+    //   seen.add(n.id);
+    //   out.push({ node: n, order: out.length });
+    // }
 
     // for (const n of nodes) {
     //   const title = String(n?.title ?? "");
