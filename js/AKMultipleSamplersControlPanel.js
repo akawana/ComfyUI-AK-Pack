@@ -129,16 +129,34 @@ function findNodesFromNodesList(nodesListText) {
     }
 
     const sub = tok.toLowerCase();
-    for (const n of nodes) {
-      const title = String(n?.title ?? "");
-      if (!title) continue;
-      if (title.toLowerCase().includes(sub)) {
-        if (!seen.has(n.id)) {
-          seen.add(n.id);
-          out.push({ node: n, order: out.length });
-        }
-      }
+
+    const matches = [];
+    for (const n of graph._nodes) {
+      if (!n?.title) continue;
+      if (!n.title.toLowerCase().includes(sub)) continue;
+      if (seen.has(n.id)) continue;
+      matches.push(n);
     }
+
+    matches.sort((a, b) =>
+      naturalCompare(a.title, b.title) || (a.id - b.id)
+    );
+
+    for (const n of matches) {
+      seen.add(n.id);
+      out.push(n);
+    }
+
+    // for (const n of nodes) {
+    //   const title = String(n?.title ?? "");
+    //   if (!title) continue;
+    //   if (title.toLowerCase().includes(sub)) {
+    //     if (!seen.has(n.id)) {
+    //       seen.add(n.id);
+    //       out.push({ node: n, order: out.length });
+    //     }
+    //   }
+    // }
   }
 
   return out.map(x => x.node);
@@ -317,7 +335,7 @@ function registerSettings(applyFn) {
     type: "boolean",
     defaultValue: true,
     category: ["AK", "Multiple Samplers Control", "Multiple Samplers Control"],
-    onChange: (newVal, oldVal) => {applyFn(newVal === true); }
+    onChange: (newVal, oldVal) => { applyFn(newVal === true); }
 
   });
 }
