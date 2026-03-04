@@ -446,6 +446,7 @@ export function renderProjectTab(rootEl) {
       st.open_image_filename = meta.name;
       st.open_image_subfolder = meta.subfolder;
       st.open_image_type = meta.type;
+      st.timestamp = Date.now();
 
       writeProjectSettingsValues(st);
       syncAllProjectSettingsOutNodes();

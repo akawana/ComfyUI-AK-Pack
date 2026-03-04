@@ -22,6 +22,7 @@ export const AK_PSP_DEFAULTS = {
   // open_image_relpath: "",
   open_image_subfolder: "",
   open_image_type: "input",
+  timestamp: 0,
 };
 
 
@@ -92,6 +93,7 @@ export function writeProjectSettingsValues(next) {
     // open_image_relpath: String(next.open_image_relpath ?? ""),
     open_image_subfolder: String(next.open_image_subfolder ?? ""),
     open_image_type: String(next.open_image_type ?? "input"),
+    timestamp: Number(next.timestamp ?? 0),
   };
 }
 
