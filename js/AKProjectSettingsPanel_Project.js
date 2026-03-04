@@ -366,7 +366,7 @@ export function renderProjectTab(rootEl) {
       const sf = encodeURIComponent(String(subfolder || ""));
       const tp = encodeURIComponent(String(type || "input"));
       if (!fn) return "";
-      return `/view?filename=${fn}&subfolder=${sf}&type=${tp}`;
+      return `/view?filename=${fn}&subfolder=${sf}&type=${tp}&t=${Date.now()}`;
     }
 
     function setPreviewByMeta(filename, subfolder, type) {
