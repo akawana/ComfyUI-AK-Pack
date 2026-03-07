@@ -1,15 +1,30 @@
-
 import torch
 import torch.nn.functional as F
 from PIL import Image
 import re
 
+
 class AKResizeOnBoolean:
+    STANDARD_BOUNDS = [
+        "User Width x Height",
+        "1152 x 640",
+        "1344 x 768",
+        "1536 x 896",
+        "1792 x 1024",
+        "2048 x 1152",
+        "640 x 1152",
+        "768 x 1344",
+        "896 x 1536",
+        "1024 x 1792",
+        "1152 x 2048",
+    ]
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "do_resize": ("BOOLEAN", {"default": True}),
+                "resize_to_bounds": (cls.STANDARD_BOUNDS, {"default": "User Width x Height"}),
                 "width": ("INT", {"default": 0, "min": 0, "step": 1}),
                 "height": ("INT", {"default": 0, "min": 0, "step": 1}),
                 "resize_algorithm": (["nearest-exact", "bilinear", "bicubic", "lanczos"], {"default": "nearest-exact"}),
@@ -44,6 +59,14 @@ class AKResizeOnBoolean:
             rgb = [0, 0, 0]
         rgb = [max(0, min(255, v)) for v in rgb]
         return (rgb[0], rgb[1], rgb[2])
+
+    def _parse_resize_to_bounds(self, value: str, fallback_w: int, fallback_h: int):
+        if value == "User Width x Height":
+            return fallback_w, fallback_h
+        match = re.match(r"^\s*(\d+)\s*x\s*(\d+)\s*$", value or "")
+        if match:
+            return int(match.group(1)), int(match.group(2))
+        return fallback_w, fallback_h
 
     def _to_pil_rgb(self, img: torch.Tensor) -> Image.Image:
         x = img.detach()
@@ -247,7 +270,7 @@ class AKResizeOnBoolean:
         y0 = max(0, min(nh - out_h, y0))
         return inner[:, y0:y0+out_h, x0:x0+out_w]
 
-    def run(self, do_resize=True, width=0, height=0, resize_algorithm="nearest-exact",
+    def run(self, do_resize=True, resize_to_bounds="User Width x Height", width=0, height=0, resize_algorithm="nearest-exact",
             resize_type="stretch", pad_color="0, 0, 0", crop_position="center",
             image=None, mask=None):
 
@@ -267,8 +290,9 @@ class AKResizeOnBoolean:
                 out_mask = self._empty_mask(device)
             return (out_img, out_mask)
 
-        out_w = int(width) if width is not None else 0
-        out_h = int(height) if height is not None else 0
+        user_w = int(width) if width is not None else 0
+        user_h = int(height) if height is not None else 0
+        out_w, out_h = self._parse_resize_to_bounds(resize_to_bounds, user_w, user_h)
 
         if out_img is not None:
             out_img = self._resize_image(out_img, out_w, out_h, resize_algorithm, resize_type, pad_color, crop_position)
