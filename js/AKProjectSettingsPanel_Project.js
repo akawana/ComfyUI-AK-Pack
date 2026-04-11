@@ -384,8 +384,9 @@ export function renderProjectTab(rootEl) {
       preview.style.opacity = "1";
       const img = document.createElement("img");
       img.src = src;
-      img.style.maxWidth = "100%";
-      img.style.maxHeight = "220px";
+      img.style.width = "100%";
+      img.style.height = "auto";
+      // img.style.maxHeight = "400px";
       img.style.display = "block";
       preview.appendChild(img);
     }
