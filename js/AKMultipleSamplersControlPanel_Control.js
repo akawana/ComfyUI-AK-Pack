@@ -16,6 +16,7 @@ const FIELD_SPECS = [
   { key: "sampler_name", type: "select" },
   { key: "scheduler", type: "select" },
   { key: "denoise", type: "number", step: 0.01 },
+  { key: "cycle", type: "number", step: 1, min: 0, label: "detailer_cycle" },
 ];
 const FIXED_2_DECIMALS_KEYS = new Set(["cfg", "denoise"]);
 
@@ -179,7 +180,10 @@ function bumpNumberInput(inputEl, dir) {
   const raw = String(inputEl?.value ?? "").trim();
   const cur = Number(raw);
   const base = Number.isFinite(cur) ? cur : 0;
-  const next = base + dir * s;
+  // const next = base + dir * s;
+  let next = base + dir * s;
+  const minVal = Number(inputEl?.dataset?.min ?? "");
+  if (Number.isFinite(minVal) && next < minVal) next = minVal;
 
   const decimals = (() => {
     const fd = Number(inputEl?.dataset?.fixedDecimals ?? "");
@@ -418,7 +422,7 @@ export function renderControlPanel(el, ctx = null) {
   const numBtns = {};
   for (const spec of FIELD_SPECS) {
     const row = mkRow();
-    const klabel = mkKeyLabel(spec.key);
+    const klabel = mkKeyLabel(spec.label ?? spec.key);
     let control;
     if (spec.type === "select") {
       control = mkSelect();
@@ -432,6 +436,7 @@ export function renderControlPanel(el, ctx = null) {
       continue;
     } else {
       const nc = mkNumberControl(spec.key, spec.step ?? 1);
+      if (spec.min !== undefined) nc.input.dataset.min = String(spec.min);
       control = nc.wrap;
       numBtns[spec.key] = { dec: nc.dec, inc: nc.inc };
       row.appendChild(klabel);
@@ -491,6 +496,7 @@ export function renderControlPanel(el, ctx = null) {
       sampler_name: st.sampler_name ?? "",
       scheduler: st.scheduler ?? "",
       denoise: st.denoise ?? "",
+      cycles: st.cycles ?? "",
       roc: st.run_on_change_panel === true,
       cfg_step: st.cfg_step ?? "",
       denoise_step: st.denoise_step ?? "",
@@ -602,7 +608,7 @@ export function renderControlPanel(el, ctx = null) {
     btn.dec.addEventListener("mousedown", () => {
       dbg("btnClick", { key: spec.key, dir: -1 });
       bumpNumberInput(inp, -1);
-      
+
       inp.focus({ preventScroll: true });
       inp.select();
       applyFieldToNode(spec.key, true);
@@ -610,7 +616,7 @@ export function renderControlPanel(el, ctx = null) {
     btn.inc.addEventListener("mousedown", () => {
       dbg("btnClick", { key: spec.key, dir: 1 });
       bumpNumberInput(inp, 1);
-      
+
       inp.focus({ preventScroll: true });
       inp.select();
       applyFieldToNode(spec.key, true);
@@ -633,9 +639,26 @@ export function renderControlPanel(el, ctx = null) {
 
   scheduleRefresh();
 
-  const poll = window.setInterval(scheduleRefresh, 250);
+  // const poll = window.setInterval(scheduleRefresh, 1000);
+  // const onRemoved = () => {
+  //   window.clearInterval(poll);
+  //   el.removeEventListener("DOMNodeRemovedFromDocument", onRemoved);
+  // };
+  // el.addEventListener("DOMNodeRemovedFromDocument", onRemoved);
+
+  const onWindowMouseUp = (e) => {
+    if (!el.contains(e.target)) scheduleRefresh();
+  };
+  const onWindowKeyDown = (e) => {
+    if (e.key === "Enter" && !el.contains(e.target)) scheduleRefresh();
+  };
+
+  window.addEventListener("mouseup", onWindowMouseUp);
+  window.addEventListener("keydown", onWindowKeyDown);
+
   const onRemoved = () => {
-    window.clearInterval(poll);
+    window.removeEventListener("mouseup", onWindowMouseUp);
+    window.removeEventListener("keydown", onWindowKeyDown);
     el.removeEventListener("DOMNodeRemovedFromDocument", onRemoved);
   };
   el.addEventListener("DOMNodeRemovedFromDocument", onRemoved);

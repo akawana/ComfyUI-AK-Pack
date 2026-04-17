@@ -5,11 +5,11 @@ const STORE_KEY = "ak_multiple_samplers_control_panel";
 
 function getStore() {
   const g = app?.graph;
-  if (!g) return { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
+  if (!g) return { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, detailer_cycles: 1, change_delay: 300 };
   if (!g.extra) g.extra = {};
   const st = g.extra[STORE_KEY];
   if (!st || typeof st !== "object") {
-    g.extra[STORE_KEY] = { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, change_delay: 300 };
+    g.extra[STORE_KEY] = { nodes_list: "KSampler", nodes_exclude_list: "", sorting_mode: "By name", cfg_step: 0.5, denoise_step: 0.05, detailer_cycles: 1, change_delay: 300 };
     return g.extra[STORE_KEY];
   }
   if (typeof st.nodes_list !== "string") st.nodes_list = "KSampler";
@@ -93,12 +93,12 @@ export function renderSettingsPanel(el) {
   const nodesText = mkTextarea();
   nodesText.value = st.nodes_list;
 
-  
+
   const excludeLabel = mkLabel("List nodes to exclude:");
   const excludeText = mkTextarea();
   excludeText.value = st.nodes_exclude_list;
 
-const sortingLabel = mkLabel("Sorting mode:");
+  const sortingLabel = mkLabel("Sorting mode:");
   const sortingSelect = mkSelect(["By name", "By order in list"]);
   sortingSelect.value = st.sorting_mode;
 
@@ -109,6 +109,13 @@ const sortingLabel = mkLabel("Sorting mode:");
   const denoiseStepLabel = mkLabel("Denoise step:");
   const denoiseStepInput = mkInput();
   denoiseStepInput.value = String(st.denoise_step);
+
+  // const detailerCyclesLabel = mkLabel("Detailer cycles:");
+  // const detailerCyclesInput = mkInput();
+  // detailerCyclesInput.type = "number";
+  // detailerCyclesInput.min = "1";
+  // detailerCyclesInput.step = "1";
+  // detailerCyclesInput.value = String(Math.max(1, Math.trunc(Number(st.detailer_cycles) || 1)));
 
   const changeDelayLabel = mkLabel("Change delay:");
   const changeDelayInput = mkInput();
@@ -135,6 +142,11 @@ const sortingLabel = mkLabel("Sorting mode:");
       s.denoise_step = Number.isFinite(ds) && ds > 0 ? ds : 0.05;
       denoiseStepInput.value = String(s.denoise_step);
 
+      // const dcRaw = String(detailerCyclesInput.value ?? "").trim();
+      // const dc = Math.trunc(Number(dcRaw));
+      // s.detailer_cycles = Number.isFinite(dc) && dc >= 1 ? dc : 1;
+      // detailerCyclesInput.value = String(s.detailer_cycles);
+
       const cdRaw = String(changeDelayInput.value ?? "").trim();
       const cd = Number(cdRaw);
       s.change_delay = Number.isFinite(cd) && cd >= 0 ? Math.trunc(cd) : 300;
@@ -154,6 +166,7 @@ const sortingLabel = mkLabel("Sorting mode:");
   cfgStepInput.addEventListener("input", scheduleSave);
   denoiseStepInput.addEventListener("input", scheduleSave);
   changeDelayInput.addEventListener("input", scheduleSave);
+  // detailerCyclesInput.addEventListener("input", scheduleSave);
 
   el.appendChild(nodesLabel);
   el.appendChild(nodesText);
@@ -165,6 +178,8 @@ const sortingLabel = mkLabel("Sorting mode:");
   el.appendChild(cfgStepInput);
   el.appendChild(denoiseStepLabel);
   el.appendChild(denoiseStepInput);
+  // el.appendChild(detailerCyclesLabel);
+  // el.appendChild(detailerCyclesInput);
   el.appendChild(changeDelayLabel);
   el.appendChild(changeDelayInput);
 }
