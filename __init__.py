@@ -1,125 +1,40 @@
 WEB_DIRECTORY = "./js"
 
-from .nodes.AKIndexMultiple import NODE_CLASS_MAPPINGS as AKIndexMultiple_MAPPINGS
-from .nodes.AKIndexMultiple import NODE_DISPLAY_NAME_MAPPINGS as AKIndexMultiple_DISPLAY
+import importlib
 
-from .nodes.AKCLIPEncodeMultiple import NODE_CLASS_MAPPINGS as AKCLIPEncodeMultiple_MAPPINGS
-from .nodes.AKCLIPEncodeMultiple import NODE_DISPLAY_NAME_MAPPINGS as AKCLIPEncodeMultiple_DISPLAY
+_NODE_MODULES = [
+    "AKIndexMultiple",
+    "AKCLIPEncodeMultiple",
+    "IsOneOfGroupsActive",
+    "RepeatGroupState",
+    "PreviewRawText",
+    "CLIPTextEncodeCached",
+    "CLIPTextEncodeAndCombineCached",
+    "AKBase",
+    "AKPipe",
+    "AKPipeLoop",
+    "Setter",
+    "Getter",
+    "AKResizeOnBoolean",
+    "IsMaskEmpty",
+    "AKContrastAndSaturateImage",
+    "AKReplaceAlphaWithColor",
+    "AKReplaceColorWithAlpha",
+    "AKControlMultipleKSamplers",
+    "AKKSamplerSettings",
+    "AKProjectSettingsOutResize",
+    "AKProjectSettingsOutImage", 
+    "AKMatchColor",
+    "AKListLength",
+    "AKMakeListFromAny",
+]
 
-from .nodes.IsOneOfGroupsActive import NODE_CLASS_MAPPINGS as GROUPCHK_MAPPINGS
-from .nodes.IsOneOfGroupsActive import NODE_DISPLAY_NAME_MAPPINGS as GROUPCHK_DISPLAY
+NODE_CLASS_MAPPINGS = {}
+NODE_DISPLAY_NAME_MAPPINGS = {}
 
-from .nodes.RepeatGroupState import NODE_CLASS_MAPPINGS as RPSTATE_MAPPINGS
-from .nodes.RepeatGroupState import NODE_DISPLAY_NAME_MAPPINGS as RPSTATE_DISPLAY
-
-from .nodes.PreviewRawText import NODE_CLASS_MAPPINGS as PRTSTATE_MAPPINGS
-from .nodes.PreviewRawText import NODE_DISPLAY_NAME_MAPPINGS as PRTSTATE_DISPLAY
-
-from .nodes.CLIPTextEncodeCached import NODE_CLASS_MAPPINGS as CLCSTATE_MAPPINGS
-from .nodes.CLIPTextEncodeCached import NODE_DISPLAY_NAME_MAPPINGS as CLCSTATE_DISPLAY
-
-from .nodes.CLIPTextEncodeAndCombineCached import NODE_CLASS_MAPPINGS as CLCOMBINE_STATE_MAPPINGS
-from .nodes.CLIPTextEncodeAndCombineCached import NODE_DISPLAY_NAME_MAPPINGS as CLCOMBINE_STATE_DISPLAY
-
-from .nodes.AKBase import NODE_CLASS_MAPPINGS as AKBSTATE_MAPPINGS
-from .nodes.AKBase import NODE_DISPLAY_NAME_MAPPINGS as AKBSTATE_DISPLAY
-
-from .nodes.AKPipe import NODE_CLASS_MAPPINGS as AKPIPESTATE_MAPPINGS
-from .nodes.AKPipe import NODE_DISPLAY_NAME_MAPPINGS as AKPIPESTATE_DISPLAY
-
-from .nodes.AKPipeLoop import NODE_CLASS_MAPPINGS as AKPIPEL_STATE_MAPPINGS
-from .nodes.AKPipeLoop import NODE_DISPLAY_NAME_MAPPINGS as AKPIPEL_STATE_DISPLAY
-
-from .nodes.Setter import NODE_CLASS_MAPPINGS as SETTERSTATE_MAPPINGS
-from .nodes.Setter import NODE_DISPLAY_NAME_MAPPINGS as SETTERSTATE_DISPLAY
-
-from .nodes.Getter import NODE_CLASS_MAPPINGS as GETTERSTATE_MAPPINGS
-from .nodes.Getter import NODE_DISPLAY_NAME_MAPPINGS as GETTERSTATE_DISPLAY
-
-from .nodes.AKResizeOnBoolean import NODE_CLASS_MAPPINGS as RESIZESTATE_MAPPINGS
-from .nodes.AKResizeOnBoolean import NODE_DISPLAY_NAME_MAPPINGS as RESIZESTATE_DISPLAY
-
-from .nodes.IsMaskEmpty import NODE_CLASS_MAPPINGS as ISMSTATE_MAPPINGS
-from .nodes.IsMaskEmpty import NODE_DISPLAY_NAME_MAPPINGS as ISMSTATE_DISPLAY
-
-from .nodes.AKContrastAndSaturateImage import NODE_CLASS_MAPPINGS as AKSAT_STATE_MAPPINGS
-from .nodes.AKContrastAndSaturateImage import NODE_DISPLAY_NAME_MAPPINGS as AKSAT_STATE_DISPLAY
-
-from .nodes.AKReplaceAlphaWithColor import NODE_CLASS_MAPPINGS as AKRALPHA_STATE_MAPPINGS
-from .nodes.AKReplaceAlphaWithColor import NODE_DISPLAY_NAME_MAPPINGS as AKRALPHA_STATE_DISPLAY
-
-from .nodes.AKReplaceColorWithAlpha import NODE_CLASS_MAPPINGS as AKRCOLOR_STATE_MAPPINGS
-from .nodes.AKReplaceColorWithAlpha import NODE_DISPLAY_NAME_MAPPINGS as AKRCOLOR_STATE_DISPLAY
-
-from .nodes.AKControlMultipleKSamplers import NODE_CLASS_MAPPINGS as AK_CONTROL_SAMPLERS_COLOR_STATE_MAPPINGS
-from .nodes.AKControlMultipleKSamplers import NODE_DISPLAY_NAME_MAPPINGS as AK_CONTROL_SAMPLERS_COLOR_STATE_DISPLAY
-
-from .nodes.AKKSamplerSettings import NODE_CLASS_MAPPINGS as AKKSamplerSettings_STATE_MAPPINGS
-from .nodes.AKKSamplerSettings import NODE_DISPLAY_NAME_MAPPINGS as AKKSamplerSettings_STATE_DISPLAY
-
-from .nodes.AKProjectSettingsOut import NODE_CLASS_MAPPINGS as AKProjectSettingsOut_STATE_MAPPINGS
-from .nodes.AKProjectSettingsOut import NODE_DISPLAY_NAME_MAPPINGS as AKProjectSettingsOut_STATE_DISPLAY
-
-from .nodes.AKMatchColor import NODE_CLASS_MAPPINGS as AKMatchColor_STATE_MAPPINGS
-from .nodes.AKMatchColor import NODE_DISPLAY_NAME_MAPPINGS as AKMatchColor_STATE_DISPLAY
-
-from .nodes.AKListLength import NODE_CLASS_MAPPINGS as AKListLength_STATE_MAPPINGS
-from .nodes.AKListLength import NODE_DISPLAY_NAME_MAPPINGS as AKListLength_STATE_DISPLAY
-
-from .nodes.AKMakeListFromAny import NODE_CLASS_MAPPINGS as AKMakeListFromAny_STATE_MAPPINGS
-from .nodes.AKMakeListFromAny import NODE_DISPLAY_NAME_MAPPINGS as AKMakeListFromAny_STATE_DISPLAY
-
-
-NODE_CLASS_MAPPINGS = {
-    **AKIndexMultiple_MAPPINGS,
-    **AKCLIPEncodeMultiple_MAPPINGS,
-    **GROUPCHK_MAPPINGS,
-    **RPSTATE_MAPPINGS,
-    **PRTSTATE_MAPPINGS,
-    **CLCSTATE_MAPPINGS,
-    **CLCOMBINE_STATE_MAPPINGS,
-    **AKBSTATE_MAPPINGS,
-    **AKPIPESTATE_MAPPINGS,
-    **AKPIPEL_STATE_MAPPINGS,
-    **SETTERSTATE_MAPPINGS,
-    **GETTERSTATE_MAPPINGS,
-    **RESIZESTATE_MAPPINGS,
-    **ISMSTATE_MAPPINGS,
-    **AKSAT_STATE_MAPPINGS,
-    **AKRALPHA_STATE_MAPPINGS,
-    **AKRCOLOR_STATE_MAPPINGS,
-    **AK_CONTROL_SAMPLERS_COLOR_STATE_MAPPINGS,
-    **AKKSamplerSettings_STATE_MAPPINGS,
-    **AKProjectSettingsOut_STATE_MAPPINGS,
-    **AKMatchColor_STATE_MAPPINGS,
-    **AKListLength_STATE_MAPPINGS,
-    **AKMakeListFromAny_STATE_MAPPINGS,
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    **AKIndexMultiple_DISPLAY,
-    **AKCLIPEncodeMultiple_DISPLAY,
-    **GROUPCHK_DISPLAY,
-    **RPSTATE_DISPLAY,
-    **PRTSTATE_DISPLAY,
-    **CLCSTATE_DISPLAY,
-    **CLCOMBINE_STATE_DISPLAY,
-    **AKBSTATE_DISPLAY,
-    **AKPIPESTATE_DISPLAY,
-    **AKPIPEL_STATE_DISPLAY,
-    **SETTERSTATE_DISPLAY,
-    **GETTERSTATE_DISPLAY,
-    **RESIZESTATE_DISPLAY,
-    **ISMSTATE_DISPLAY,
-    **AKSAT_STATE_DISPLAY,
-    **AKRALPHA_STATE_DISPLAY,
-    **AKRCOLOR_STATE_DISPLAY,
-    **AK_CONTROL_SAMPLERS_COLOR_STATE_DISPLAY,
-    **AKKSamplerSettings_STATE_DISPLAY,
-    **AKProjectSettingsOut_STATE_DISPLAY,
-    **AKMatchColor_STATE_DISPLAY,
-    **AKListLength_STATE_DISPLAY,
-    **AKMakeListFromAny_STATE_DISPLAY,
-}
+for _mod_name in _NODE_MODULES:
+    _mod = importlib.import_module(f".nodes.{_mod_name}", package=__name__)
+    NODE_CLASS_MAPPINGS.update(_mod.NODE_CLASS_MAPPINGS)
+    NODE_DISPLAY_NAME_MAPPINGS.update(_mod.NODE_DISPLAY_NAME_MAPPINGS)
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

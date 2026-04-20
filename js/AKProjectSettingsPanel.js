@@ -332,7 +332,11 @@ function hideWidget(node) {
 
 const VALUE_KEY = "ak_project_settings_values";
 const ENABLE_KEY = "ak_project_settings_enable_options";
-const TARGET_NODE = "AKProjectSettingsOut";
+// const TARGET_NODE = "AKProjectSettingsOut";
+const TARGET_NODES = new Set([
+  "AKProjectSettingsOutFolder",
+  "AKProjectSettingsOutImage",
+]);
 
 
 function syncNode(node) {
@@ -380,7 +384,7 @@ function syncNode(node) {
 export function syncAllProjectSettingsOutNodes() {
   const nodes = app?.graph?._nodes || [];
   for (const n of nodes) {
-    if (n?.comfyClass === TARGET_NODE) {
+    if (TARGET_NODES.has(n?.comfyClass)) {
       syncNode(n);
     }
   }
@@ -410,7 +414,7 @@ export function applyOutputsVisibility(enableMap) {
   const glinks = g?.links || null;
 
   for (const node of nodes) {
-    if (node?.comfyClass !== TARGET_NODE) continue;
+    if (!TARGET_NODES.has(node?.comfyClass)) continue;
     if (!Array.isArray(node.outputs)) continue;
 
     // Snapshot FULL canonical outputs list ONCE.
@@ -515,14 +519,14 @@ app.registerExtension({
     registered = true;
   },
   nodeCreated(node) {
-    if (node?.comfyClass === TARGET_NODE) {
+    if (TARGET_NODES.has(node?.comfyClass)) {
       syncNode(node);
       queueMicrotask(() => hideWidget(node));
     }
   },
 
   loadedGraphNode(node) {
-    if (node?.comfyClass === TARGET_NODE) {
+    if (TARGET_NODES.has(node?.comfyClass)) { 
       syncNode(node);
       queueMicrotask(() => {
         hideWidget(node);
