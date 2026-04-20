@@ -281,6 +281,11 @@ export function renderProjectTab(rootEl) {
     block.style.gap = "6px";
     block.style.width = "100%";
 
+    const btnRow = document.createElement("div");
+    btnRow.style.display = "flex";
+    btnRow.style.gap = "6px";
+    btnRow.style.width = "100%";
+
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = "Open Image";
@@ -291,7 +296,19 @@ export function renderProjectTab(rootEl) {
     btn.style.background = "rgba(255,255,255,0.06)";
     btn.style.color = "inherit";
     btn.style.padding = "0 12px";
-    btn.style.width = "100%";
+    btn.style.flex = "1";
+
+    const btnPaste = document.createElement("button");
+    btnPaste.type = "button";
+    btnPaste.textContent = "Paste Image";
+    btnPaste.style.height = "30px";
+    btnPaste.style.cursor = "pointer";
+    btnPaste.style.borderRadius = "12px";
+    btnPaste.style.border = "1px solid rgba(255,255,255,0.14)";
+    btnPaste.style.background = "rgba(255,255,255,0.06)";
+    btnPaste.style.color = "inherit";
+    btnPaste.style.padding = "0 12px";
+    btnPaste.style.flex = "1";
 
     const inp = document.createElement("input");
     inp.type = "file";
@@ -316,9 +333,23 @@ export function renderProjectTab(rootEl) {
       return `/view?filename=${fn}&subfolder=${sf}&type=${tp}&t=${Date.now()}`;
     }
 
-    function setPreviewByMeta(filename, subfolder, type) {
+    let _currentBlobUrl = null;
+
+    async function setPreviewByMeta(filename, subfolder, type) {
       const url = makeViewUrl(filename, subfolder, type);
-      setPreview(url);
+      try {
+        const resp = await fetch(url, { cache: "no-store" });
+        if (!resp.ok) throw new Error("fetch failed");
+        const blob = await resp.blob();
+        if (_currentBlobUrl) {
+          URL.revokeObjectURL(_currentBlobUrl);
+          _currentBlobUrl = null;
+        }
+        _currentBlobUrl = URL.createObjectURL(blob);
+        setPreview(_currentBlobUrl);
+      } catch (_) {
+        setPreview(url);
+      }
     }
 
     function setPreview(src) {
@@ -334,6 +365,8 @@ export function renderProjectTab(rootEl) {
       img.style.width = "100%";
       img.style.height = "auto";
       img.style.display = "block";
+      // force reload if browser tries to reuse cached decode
+      img.decode().catch(() => {});
       preview.appendChild(img);
     }
 
@@ -371,6 +404,7 @@ export function renderProjectTab(rootEl) {
 
     inp.addEventListener("change", async () => {
       const f = inp.files && inp.files[0] ? inp.files[0] : null;
+      inp.value = "";
       if (!f) return;
 
       let meta = null;
@@ -393,7 +427,94 @@ export function renderProjectTab(rootEl) {
       syncAllProjectSettingsOutNodes();
     });
 
-    block.appendChild(btn);
+    async function uploadToComfyTemp(file) {
+      const fd = new FormData();
+      fd.append("image", file);
+      fd.append("type", "temp");
+      fd.append("subfolder", "");
+      fd.append("overwrite", "true");
+
+      const res = await fetch("/upload/image", { method: "POST", body: fd });
+      if (!res.ok) throw new Error(`upload failed: ${res.status}`);
+      const j = await res.json().catch(() => ({}));
+      return {
+        name: String(j.name || file.name || ""),
+        subfolder: String(j.subfolder || ""),
+        type: "temp",
+      };
+    }
+
+    btnPaste.addEventListener("mousedown", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      btnPaste.blur();
+
+      let clipboardItems;
+      try {
+        clipboardItems = await navigator.clipboard.read();
+      } catch (err) {
+        return;
+      }
+
+      let imageBlob = null;
+      for (const item of clipboardItems) {
+        for (const mimeType of item.types) {
+          if (mimeType.startsWith("image/")) {
+            try {
+              imageBlob = await item.getType(mimeType);
+            } catch (_) {}
+            break;
+          }
+        }
+        if (imageBlob) break;
+      }
+      if (!imageBlob) return;
+
+      const st = readProjectSettingsValues();
+      const currentName = st.open_image_filename && st.open_image_filename !== "DISABLED"
+        ? st.open_image_filename
+        : null;
+
+      const ext = imageBlob.type === "image/png" ? "png"
+        : imageBlob.type === "image/jpeg" ? "jpg"
+        : imageBlob.type === "image/webp" ? "webp"
+        : "png";
+
+      let targetName;
+      if (currentName) {
+        const dot = currentName.lastIndexOf(".");
+        targetName = dot > 0
+          ? currentName.slice(0, dot) + "." + ext
+          : currentName + "." + ext;
+      } else {
+        targetName = "paste_" + Math.random().toString(36).slice(2, 10) + "." + ext;
+      }
+
+      const file = new File([imageBlob], targetName, { type: imageBlob.type });
+
+      let meta = null;
+      try {
+        meta = await uploadToComfyTemp(file);
+      } catch (err) {
+        return;
+      }
+
+      setPreviewByMeta(meta.name, meta.subfolder, meta.type);
+
+      st.open_image = "";
+      st.open_image_filename = meta.name;
+      st.open_image_subfolder = meta.subfolder;
+      st.open_image_type = meta.type;
+      st.timestamp = Date.now();
+
+      writeProjectSettingsValues(st);
+      syncAllProjectSettingsOutNodes();
+    });
+
+    btnRow.appendChild(btn);
+    btnRow.appendChild(btnPaste);
+
+    block.appendChild(btnRow);
     block.appendChild(inp);
     block.appendChild(preview);
     sec.appendChild(block);

@@ -120,11 +120,14 @@ class AKProjectSettingsOutImage(io.ComfyNode):
 
         image = None
 
-        if open_image_filename and open_image_type == "input":
+        if open_image_filename and open_image_type in ("input", "temp"):
             try:
-                input_dir_abs = os.path.abspath(folder_paths.get_input_directory())
+                if open_image_type == "temp":
+                    base_dir_abs = os.path.abspath(folder_paths.get_temp_directory())
+                else:
+                    base_dir_abs = os.path.abspath(folder_paths.get_input_directory())
                 abs_path = _safe_join_under(
-                    input_dir_abs, open_image_subfolder, open_image_filename
+                    base_dir_abs, open_image_subfolder, open_image_filename
                 )
                 if abs_path and os.path.isfile(abs_path):
                     img = Image.open(abs_path).convert("RGB")
