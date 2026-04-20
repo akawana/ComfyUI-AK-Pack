@@ -56,54 +56,12 @@ const OPEN_IMAGE_GARBAGE_SUBFOLDER = "garbage";
   document.head.appendChild(s);
 })();
 
-// function getGraphExtra() {
-//   const g = app && app.graph ? app.graph : null;
-//   if (!g) return null;
-//   if (!g.extra) g.extra = {};
-//   return g.extra;
-// }
-
-// function toInt(v, dflt) {
-//   const n = Number(v);
-//   if (!Number.isFinite(n)) return dflt;
-//   return Math.trunc(n);
-// }
-
 function clampInt(n, minV, maxV) {
   let x = toInt(n, minV);
   if (x < minV) x = minV;
   if (x > maxV) x = maxV;
   return x;
 }
-
-// function readValues() {
-//   const extra = getGraphExtra();
-//   const raw = extra && extra[AK_PSP_VALUE_KEY] ? extra[AK_PSP_VALUE_KEY] : null;
-//   const st = Object.assign({}, AK_PSP_DEFAULTS, raw && typeof raw === "object" ? raw : {});
-
-//   st.output_filename = String(st.output_filename ?? "");
-//   st.output_subfolder = String(st.output_subfolder ?? "");
-//   st.width = toInt(st.width, AK_PSP_DEFAULTS.width);
-//   st.height = toInt(st.height, AK_PSP_DEFAULTS.height);
-//   st.do_resize = toInt(st.do_resize, AK_PSP_DEFAULTS.do_resize);
-//   st.open_image = String(st.open_image ?? "");
-
-//   return st;
-// }
-
-// function writeValues(next) {
-//   const extra = getGraphExtra();
-//   if (!extra) return;
-
-//   extra[AK_PSP_VALUE_KEY] = {
-//     output_filename: String(next.output_filename ?? ""),
-//     output_subfolder: String(next.output_subfolder ?? ""),
-//     width: toInt(next.width, AK_PSP_DEFAULTS.width),
-//     height: toInt(next.height, AK_PSP_DEFAULTS.height),
-//     do_resize: toInt(next.do_resize, AK_PSP_DEFAULTS.do_resize),
-//     open_image: String(next.open_image ?? ""),
-//   };
-// }
 
 function mkSection(rootEl) {
   const sec = document.createElement("div");
@@ -256,19 +214,6 @@ function commitIfEnabled(key, value, enabledMap) {
   syncAllProjectSettingsOutNodes();
 }
 
-function fileStem(name) {
-  const s = String(name ?? "");
-  return s.replace(/\.[^/.]+$/, "");
-}
-
-function relPathFromFile(f) {
-  const rp = f && typeof f.webkitRelativePath === "string" ? f.webkitRelativePath : "";
-  console.log("file.name:", f.name);
-  console.log("file.webkitRelativePath:", f.webkitRelativePath);
-  console.log("file.type:", f.type, "size:", f.size);
-  return String(rp || "");
-}
-
 export function renderProjectTab(rootEl) {
   rootEl.innerHTML = "";
 
@@ -282,7 +227,10 @@ export function renderProjectTab(rootEl) {
     row.appendChild(mkLabel("output_filename"));
     const ctl = mkTextControl(values.output_filename);
     ctl.inp.addEventListener("change", function () {
-      commitIfEnabled("output_filename", String(ctl.inp.value ?? ""), enabled);
+      const st = readProjectSettingsValues();
+      st.output_filename = String(ctl.inp.value ?? "").trim();   // Только output_filename
+      writeProjectSettingsValues(st);
+      syncAllProjectSettingsOutNodes();
     });
     row.appendChild(ctl.wrap);
   }
@@ -324,6 +272,7 @@ export function renderProjectTab(rootEl) {
     });
     row.appendChild(toggle);
   }
+
   if (enabled.open_image === true) {
     const block = document.createElement("div");
     block.style.marginTop = "10px";
@@ -348,8 +297,6 @@ export function renderProjectTab(rootEl) {
     inp.type = "file";
     inp.accept = "image/*";
     inp.style.display = "none";
-    // inp.setAttribute("webkitdirectory", "");
-    // inp.setAttribute("directory", "");
 
     const preview = document.createElement("div");
     preview.style.width = "100%";
@@ -386,7 +333,6 @@ export function renderProjectTab(rootEl) {
       img.src = src;
       img.style.width = "100%";
       img.style.height = "auto";
-      // img.style.maxHeight = "400px";
       img.style.display = "block";
       preview.appendChild(img);
     }
@@ -414,9 +360,7 @@ export function renderProjectTab(rootEl) {
       fd.append("overwrite", "true");
 
       const res = await fetch("/upload/image", { method: "POST", body: fd });
-      if (!res.ok) {
-        throw new Error(`upload failed: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`upload failed: ${res.status}`);
       const j = await res.json().catch(() => ({}));
       return {
         name: String(j.name || file.name || ""),
@@ -429,22 +373,18 @@ export function renderProjectTab(rootEl) {
       const f = inp.files && inp.files[0] ? inp.files[0] : null;
       if (!f) return;
 
-      // загружаем в fixed subfolder: input/garbage/
       let meta = null;
       try {
         meta = await uploadToComfyInput(f, OPEN_IMAGE_GARBAGE_SUBFOLDER);
       } catch (e) {
-        // если upload упал — просто не сохраняем ничего, превью тоже не меняем
         return;
       }
 
-      // превью всегда через /view (а не dataURL)
       setPreviewByMeta(meta.name, meta.subfolder, meta.type);
 
-      // сохраняем в graph ТОЛЬКО метаданные (никаких base64)
       const st = readProjectSettingsValues();
-      st.open_image = ""; // важно: очищаем, чтобы не попадало в workflow
-      st.open_image_filename = meta.name;
+      st.open_image = "";
+      st.open_image_filename = meta.name;        // ← Только здесь обновляется
       st.open_image_subfolder = meta.subfolder;
       st.open_image_type = meta.type;
       st.timestamp = Date.now();
@@ -458,5 +398,4 @@ export function renderProjectTab(rootEl) {
     block.appendChild(preview);
     sec.appendChild(block);
   }
-
 }

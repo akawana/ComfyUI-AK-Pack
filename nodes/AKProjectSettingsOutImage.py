@@ -47,19 +47,14 @@ def _find_first_subfolder_abs_path_by_filename(filename: str) -> str:
 
     input_dir = os.path.abspath(folder_paths.get_input_directory())
 
-    # Search for the file in all subfolders of input/
     for dirpath, _, filenames in os.walk(input_dir, topdown=True):
         for fn in filenames:
             if fn.lower() == filename.lower():
                 abs_dirpath = os.path.abspath(dirpath)
-
-                # Get relative path from input/ directory
                 try:
                     rel_path = os.path.relpath(abs_dirpath, input_dir)
-                    if rel_path == "." or rel_path == "":  # file is directly in input/
+                    if rel_path == "." or rel_path == "":
                         return ""
-                    
-                    # Normalize slashes and ensure trailing slash
                     rel_path = rel_path.replace("\\", "/")
                     return rel_path.rstrip("/") + "/" if rel_path else ""
                 except Exception:
@@ -77,7 +72,7 @@ class AKProjectSettingsOutImage(io.ComfyNode):
             category="AK/settings",
             description=(
                 "Outputs the opened image from the Project Settings panel, "
-                "along with its filename (stem) and subfolder path."
+                "along with output filename and subfolder path."
             ),
             inputs=[
                 io.String.Input(
@@ -89,7 +84,7 @@ class AKProjectSettingsOutImage(io.ComfyNode):
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
-                io.String.Output(display_name="image_filename"),
+                io.String.Output(display_name="output_filename"),   # ← renamed
                 io.String.Output(display_name="output_subfolder"),
             ],
         )
@@ -105,10 +100,16 @@ class AKProjectSettingsOutImage(io.ComfyNode):
         open_image_subfolder = str(vals.get("open_image_subfolder") or "").strip()
         open_image_type = str(vals.get("open_image_type") or "input").strip() or "input"
 
-        # Primary: use output_subfolder from Project Settings
+        # === NEW LOGIC FOR output_filename ===
+        output_filename = str(vals.get("output_filename") or "").strip()
+
+        # If output_filename is empty or missing → fallback to open_image_filename (stem)
+        if not output_filename and open_image_filename:
+            output_filename = os.path.splitext(os.path.basename(open_image_filename))[0]
+
+        # output_subfolder logic (unchanged)
         output_subfolder = str(vals.get("output_subfolder") or "").strip()
 
-        # Fallback: if empty, try to detect subfolder from file location
         if not output_subfolder and open_image_filename:
             try:
                 detected = _find_first_subfolder_abs_path_by_filename(open_image_filename)
@@ -116,12 +117,6 @@ class AKProjectSettingsOutImage(io.ComfyNode):
                     output_subfolder = detected
             except Exception:
                 pass
-
-        image_filename = (
-            os.path.splitext(os.path.basename(open_image_filename))[0]
-            if open_image_filename
-            else ""
-        )
 
         image = None
 
@@ -150,7 +145,7 @@ class AKProjectSettingsOutImage(io.ComfyNode):
                 except Exception:
                     image = None
 
-        return io.NodeOutput(image, image_filename, output_subfolder)
+        return io.NodeOutput(image, output_filename, output_subfolder)
 
 
 class AKProjectSettingsOutImageExtension(ComfyExtension):
