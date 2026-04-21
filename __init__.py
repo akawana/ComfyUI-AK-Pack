@@ -27,6 +27,7 @@ _NODE_MODULES = [
     "AKMatchColor",
     "AKListLength",
     "AKMakeListFromAny",
+    "AKSaveImageAndData",
 ]
 
 NODE_CLASS_MAPPINGS = {}

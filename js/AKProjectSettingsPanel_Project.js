@@ -371,8 +371,10 @@ export function renderProjectTab(rootEl) {
     }
 
     if (values.open_image_filename && values.open_image_filename !== "DISABLED") {
-      const sub = values.open_image_subfolder || OPEN_IMAGE_GARBAGE_SUBFOLDER;
       const tp = values.open_image_type || "input";
+      const sub = tp === "temp"
+        ? (values.open_image_subfolder || "")
+        : (values.open_image_subfolder || OPEN_IMAGE_GARBAGE_SUBFOLDER);
       setPreviewByMeta(values.open_image_filename, sub, tp);
     } else {
       setPreview(values.open_image);
