@@ -371,10 +371,8 @@ export function renderProjectTab(rootEl) {
     }
 
     if (values.open_image_filename && values.open_image_filename !== "DISABLED") {
+      const sub = values.open_image_subfolder || OPEN_IMAGE_GARBAGE_SUBFOLDER;
       const tp = values.open_image_type || "input";
-      const sub = tp === "temp"
-        ? (values.open_image_subfolder || "")
-        : (values.open_image_subfolder || OPEN_IMAGE_GARBAGE_SUBFOLDER);
       setPreviewByMeta(values.open_image_filename, sub, tp);
     } else {
       setPreview(values.open_image);
@@ -429,23 +427,6 @@ export function renderProjectTab(rootEl) {
       syncAllProjectSettingsOutNodes();
     });
 
-    async function uploadToComfyTemp(file) {
-      const fd = new FormData();
-      fd.append("image", file);
-      fd.append("type", "temp");
-      fd.append("subfolder", "");
-      fd.append("overwrite", "true");
-
-      const res = await fetch("/upload/image", { method: "POST", body: fd });
-      if (!res.ok) throw new Error(`upload failed: ${res.status}`);
-      const j = await res.json().catch(() => ({}));
-      return {
-        name: String(j.name || file.name || ""),
-        subfolder: String(j.subfolder || ""),
-        type: "temp",
-      };
-    }
-
     btnPaste.addEventListener("mousedown", async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -496,7 +477,7 @@ export function renderProjectTab(rootEl) {
 
       let meta = null;
       try {
-        meta = await uploadToComfyTemp(file);
+        meta = await uploadToComfyInput(file, OPEN_IMAGE_GARBAGE_SUBFOLDER);
       } catch (err) {
         return;
       }
