@@ -20,6 +20,13 @@ const FIELD_SPECS = [
 ];
 const FIXED_2_DECIMALS_KEYS = new Set(["cfg", "denoise"]);
 
+// After DEBUG_LOGS line, add:
+let _ctrlHeld = false;
+window.addEventListener("keydown", (e) => { if (e.key === "Control") _ctrlHeld = true; }, true);
+window.addEventListener("keyup", (e) => { if (e.key === "Control") _ctrlHeld = false; }, true);
+window.addEventListener("blur", () => { _ctrlHeld = false; });
+function isCtrlHeld() { return _ctrlHeld; }
+
 function decimalsFromStep(step) {
   const s = Number(step);
   if (!Number.isFinite(s) || s === 0) return 0;
@@ -385,7 +392,7 @@ export function renderControlPanel(el, ctx = null) {
 
 
   const runOnChangeRow = mkRow();
-  const runOnChangeLabel = mkKeyLabel("Run on change");
+  const runOnChangeLabel = mkKeyLabel("Run on change (CTRL+mouse to ignore)");
   const runOnChangeCheckbox = document.createElement("input");
   runOnChangeCheckbox.type = "checkbox";
   runOnChangeCheckbox.style.width = "18px";
@@ -555,7 +562,7 @@ export function renderControlPanel(el, ctx = null) {
       const v = String(elc.value ?? "");
       st[key] = v;
       if (node) setWidgetValue(node, key, v); const reason = `fieldChange:${key}`;
-      if (st.run_on_change_panel === true) {
+      if (st.run_on_change_panel === true && !isCtrlHeld()) {
         scheduleDelayedForceQueue(reason, sanitizeChangeDelay(st));
       }
       return;
@@ -579,7 +586,7 @@ export function renderControlPanel(el, ctx = null) {
       if (node) setWidgetValue(node, key, raw);
     }
     const reason = `fieldChange:${key}`;
-    if (st.run_on_change_panel === true) {
+    if (st.run_on_change_panel === true && !isCtrlHeld()) {
       scheduleDelayedForceQueue(reason, sanitizeChangeDelay(st));
     }
   };
