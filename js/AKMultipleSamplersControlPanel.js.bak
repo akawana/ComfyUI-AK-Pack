@@ -1,8 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { renderControlPanel } from "./AKMultipleSamplersControlPanel_Control.js";
 import { renderSettingsPanel } from "./AKMultipleSamplersControlPanel_Settings.js";
-import { renderGroupsPanel } from "./AKMultipleSamplersControlPanel_Groups.js";
-import { renderGroupsSettingsPanel } from "./AKMultipleSamplersControlPanel_GroupsSettings.js";
 
 const TAB_ID = "ak-multiple-samplers-control";
 const TITLE = "Samplers";
@@ -307,39 +305,39 @@ function renderPanel(el) {
     return b;
   };
 
-  const btnSamplers    = mkTabBtn("Samplers");
-  const btnGroups      = mkTabBtn("Groups");
-  const btnSmpSettings = mkTabBtn("Smp Settings");
-  const btnGrpSettings = mkTabBtn("Grp Settings");
+  const btnControl = mkTabBtn("Control");
+  const btnSettings = mkTabBtn("Settings");
 
   const setActive = (which) => {
-    const tabs = { samplers: btnSamplers, groups: btnGroups, smpSettings: btnSmpSettings, grpSettings: btnGrpSettings };
-    for (const [k, btn] of Object.entries(tabs)) {
-      const active = k === which;
-      btn.style.background   = active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)";
-      btn.style.borderColor  = active ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)";
-    }
+    const isControl = which === "control";
+    btnControl.style.background = isControl ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)";
+    btnSettings.style.background = !isControl ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)";
+    btnControl.style.borderColor = isControl ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)";
+    btnSettings.style.borderColor = !isControl ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)";
 
     content.innerHTML = "";
-    if (which === "samplers")         renderControlPanel(content, { getStore, getControlledNodes });
-    else if (which === "groups")      renderGroupsPanel(content);
-    else if (which === "smpSettings") renderSettingsPanel(content);
-    else if (which === "grpSettings") renderGroupsSettingsPanel(content);
+    if (isControl) renderControlPanel(content, { getStore, getControlledNodes });
+    else renderSettingsPanel(content);
   };
 
-  btnSamplers.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setActive("samplers"); });
-  btnGroups.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setActive("groups"); });
-  btnSmpSettings.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setActive("smpSettings"); });
-  btnGrpSettings.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setActive("grpSettings"); });
+  btnControl.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActive("control");
+  });
 
-  tabsBar.appendChild(btnSamplers);
-  tabsBar.appendChild(btnGroups);
-  tabsBar.appendChild(btnSmpSettings);
-  tabsBar.appendChild(btnGrpSettings);
+  btnSettings.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActive("settings");
+  });
+
+  tabsBar.appendChild(btnControl);
+  tabsBar.appendChild(btnSettings);
   el.appendChild(tabsBar);
   el.appendChild(content);
 
-  setActive("samplers");
+  setActive("control");
 }
 
 function registerSettings(applyFn) {

@@ -336,6 +336,7 @@ const ENABLE_KEY = "ak_project_settings_enable_options";
 const TARGET_NODES = new Set([
   "AKProjectSettingsOutFolder",
   "AKProjectSettingsOutImage",
+  "AKProjectSettingsOutResize",
 ]);
 
 

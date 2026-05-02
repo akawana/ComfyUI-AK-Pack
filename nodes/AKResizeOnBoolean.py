@@ -1,316 +1,204 @@
 import torch
-import torch.nn.functional as F
+import hashlib
 from PIL import Image
 import re
+import numpy as np
+
+from comfy_api.latest import ComfyExtension, io
+
+STANDARD_BOUNDS = [
+    "User Width x Height",
+    "1024 x 768", "1152 x 640", "1344 x 768", "1536 x 896",
+    "1792 x 1024", "2048 x 1152", "768 x 1024", "640 x 1152",
+    "768 x 1344", "896 x 1536", "1024 x 1792", "1152 x 2048",
+]
+PAD_COLOR_SOURCES  = ["User color","Top left corner","Top right corner","Bottom left corner","Bottom right corner"]
+RESIZE_ALGORITHMS  = ["lanczos", "bicubic", "bilinear", "nearest-exact"]
+RESIZE_TYPES       = ["stretch", "fit", "pad", "crop"]
+CROP_PAD_POSITIONS = ["center", "top", "bottom", "left", "right"]
+PIL_RESAMPLE = {
+    "lanczos":       Image.Resampling.LANCZOS,
+    "bicubic":       Image.Resampling.BICUBIC,
+    "bilinear":      Image.Resampling.BILINEAR,
+    "nearest-exact": Image.Resampling.NEAREST,
+}
+
+def _parse_pad_color(s):
+    nums = re.findall(r"-?\d+", s or "")
+    rgb  = [int(nums[i]) if len(nums) > i else 0 for i in range(3)]
+    return tuple(max(0, min(255, v)) for v in rgb)
+
+def _parse_resize_to_bounds(value, fallback_w, fallback_h):
+    if value == "User Width x Height":
+        return fallback_w, fallback_h
+    m = re.match(r"^\s*(\d+)\s*x\s*(\d+)\s*$", value or "")
+    return (int(m.group(1)), int(m.group(2))) if m else (fallback_w, fallback_h)
+
+def _sample_corner_color(image, source):
+    frame = image[0]
+    h, w, _ = frame.shape
+    ox, oy = min(2, w-1), min(2, h-1)
+    if source == "Top left corner":      px = frame[oy, ox]
+    elif source == "Top right corner":   px = frame[oy, w-1-ox]
+    elif source == "Bottom left corner": px = frame[h-1-oy, ox]
+    else:                                px = frame[h-1-oy, w-1-ox]
+    return tuple(max(0, min(255, int(round(float(px[i].item())*255)))) for i in range(3))
+
+def _resolve_pad_color(src, color, image):
+    if src == "User color" or image is None:
+        return _parse_pad_color(color)
+    return _sample_corner_color(image, src)
+
+def _fit_size(in_w, in_h, out_w, out_h):
+    if not all([out_w, out_h, in_w, in_h]):
+        return in_w, in_h
+    scale = min(out_w/in_w, out_h/in_h)
+    return max(1, int(round(in_w*scale))), max(1, int(round(in_h*scale)))
+
+def _cover_size(in_w, in_h, out_w, out_h):
+    if not all([out_w, out_h, in_w, in_h]):
+        return in_w, in_h
+    scale = max(out_w/in_w, out_h/in_h)
+    return max(1, int(round(in_w*scale))), max(1, int(round(in_h*scale)))
+
+def _offsets(cw, ch, iw, ih, pos):
+    if pos == "top":    return (cw-iw)//2, 0
+    if pos == "bottom": return (cw-iw)//2, ch-ih
+    if pos == "left":   return 0, (ch-ih)//2
+    if pos == "right":  return cw-iw, (ch-ih)//2
+    return (cw-iw)//2, (ch-ih)//2
+
+def _to_pil_rgb(t):
+    x = t.detach()
+    if x.ndim == 4: x = x[0]
+    return Image.fromarray((x.clamp(0,1)*255).round().to(torch.uint8).cpu().numpy(), "RGB")
+
+def _to_pil_l(t):
+    x = t.detach()
+    if x.ndim == 3: x = x[0]
+    return Image.fromarray((x.clamp(0,1)*255).round().to(torch.uint8).cpu().numpy(), "L")
+
+def _from_pil_rgb(pil, device):
+    arr = torch.from_numpy(np.frombuffer(pil.tobytes(), dtype=np.uint8).copy())
+    return arr.view(pil.size[1], pil.size[0], 3).to(device=device, dtype=torch.float32).div(255).unsqueeze(0)
+
+def _from_pil_l(pil, device):
+    arr = torch.from_numpy(np.frombuffer(pil.tobytes(), dtype=np.uint8).copy())
+    return arr.view(pil.size[1], pil.size[0]).to(device=device, dtype=torch.float32).div(255).unsqueeze(0)
+
+def _resize_pil(pil, out_w, out_h, alg, rtype, fill, crop_pos, mode):
+    rs = PIL_RESAMPLE.get(alg, Image.Resampling.LANCZOS)
+    w, h = pil.size
+    if rtype == "stretch":
+        result = pil.resize((out_w, out_h), rs)
+    elif rtype == "fit":
+        nw, nh = _fit_size(w, h, out_w, out_h)
+        result = pil.resize((nw, nh), rs)
+    elif rtype == "pad":
+        nw, nh = _fit_size(w, h, out_w, out_h)
+        inner  = pil.resize((nw, nh), rs)
+        canvas = Image.new(mode, (out_w, out_h), fill if mode == "RGB" else 0)
+        x0, y0 = _offsets(out_w, out_h, nw, nh, crop_pos)
+        canvas.paste(inner, (max(0,x0), max(0,y0)))
+        result = canvas
+    else:  # crop
+        nw, nh = _cover_size(w, h, out_w, out_h)
+        inner  = pil.resize((nw, nh), rs)
+        x0, y0 = _offsets(nw, nh, out_w, out_h, crop_pos)
+        x0 = max(0, min(nw-out_w, x0))
+        y0 = max(0, min(nh-out_h, y0))
+        result = inner.crop((x0, y0, x0+out_w, y0+out_h))
+    return result
+
+def _resize_image(image, out_w, out_h, alg, rtype, fill, crop_pos):
+    if out_w <= 0 or out_h <= 0: return image
+    device = image.device
+    b, h, w, _ = image.shape
+    return torch.cat([
+        _from_pil_rgb(_resize_pil(_to_pil_rgb(image[i:i+1]), out_w, out_h, alg, rtype, fill, crop_pos, "RGB"), device)
+        for i in range(b)
+    ], dim=0)
+
+def _resize_mask(mask, out_w, out_h, alg, rtype, crop_pos):
+    if out_w <= 0 or out_h <= 0: return mask
+    device = mask.device
+    b, h, w = mask.shape
+    return torch.cat([
+        _from_pil_l(_resize_pil(_to_pil_l(mask[i:i+1]), out_w, out_h, alg, rtype, None, crop_pos, "L"), device)
+        for i in range(b)
+    ], dim=0)
+
+def _empty_image(device): return torch.zeros((1,1,1,3), dtype=torch.float32, device=device)
+def _empty_mask(device):  return torch.zeros((1,1,1),   dtype=torch.float32, device=device)
 
 
-class AKResizeOnBoolean:
-    STANDARD_BOUNDS = [
-        "User Width x Height",
-        "1152 x 640",
-        "1344 x 768",
-        "1536 x 896",
-        "1792 x 1024",
-        "2048 x 1152",
-        "640 x 1152",
-        "768 x 1344",
-        "896 x 1536",
-        "1024 x 1792",
-        "1152 x 2048",
-    ]
+class AKResizeOnBoolean(io.ComfyNode):
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "do_resize": ("BOOLEAN", {"default": True}),
-                "resize_to_bounds": (cls.STANDARD_BOUNDS, {"default": "User Width x Height"}),
-                "width": ("INT", {"default": 0, "min": 0, "step": 1}),
-                "height": ("INT", {"default": 0, "min": 0, "step": 1}),
-                "resize_algorithm": (["nearest-exact", "bilinear", "bicubic", "lanczos"], {"default": "nearest-exact"}),
-                "resize_type": (["stretch", "fit", "pad", "crop"], {"default": "stretch"}),
-                "pad_color": ("STRING", {"default": "0, 0, 0"}),
-                "crop_position": (["center", "top", "bottom", "left", "right"], {"default": "center"}),
-            },
-            "optional": {
-                "image": ("IMAGE",),
-                "mask": ("MASK",),
-            }
-        }
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="AKResizeOnBoolean",
+            display_name="AK Resize On Boolean",
+            category="AK/image",
+            description="Conditionally resize image and/or mask. All algorithms use PIL.",
+            inputs=[
+                io.Boolean.Input("do_resize", default=True),
+                io.Combo.Input("resize_to_bounds", options=STANDARD_BOUNDS, default="User Width x Height"),
+                io.Int.Input("width",  default=0, min=0, step=1),
+                io.Int.Input("height", default=0, min=0, step=1),
+                io.Combo.Input("resize_algorithm", options=RESIZE_ALGORITHMS, default="lanczos"),
+                io.Combo.Input("resize_type",       options=RESIZE_TYPES,      default="stretch"),
+                io.Combo.Input("pad_color_source",  options=PAD_COLOR_SOURCES, default="User color",
+                               tooltip="Source for pad fill color."),
+                io.String.Input("pad_color", default="0, 0, 0",
+                                tooltip="RGB fill color when pad_color_source is 'User color'. Format: R, G, B (0-255)."),
+                io.Combo.Input("crop_pad_position", options=CROP_PAD_POSITIONS, default="center"),
+                io.Image.Input("image", optional=True),
+                io.Mask.Input("mask",  optional=True),
+            ],
+            outputs=[
+                io.Image.Output(display_name="image"),
+                io.Mask.Output(display_name="mask"),
+            ],
+        )
 
-    RETURN_TYPES = ("IMAGE", "MASK")
-    RETURN_NAMES = ("image", "mask")
-    FUNCTION = "run"
-    CATEGORY = "AK/image"
+    @classmethod
+    def fingerprint_inputs(cls, do_resize=True, resize_to_bounds="", width=0, height=0,
+                           resize_algorithm="", resize_type="", crop_pad_position="",
+                           pad_color_source="", pad_color="", **kwargs) -> str:
+        key = f"{do_resize}|{resize_to_bounds}|{width}|{height}|{resize_algorithm}|{resize_type}|{crop_pad_position}|{pad_color_source}|{pad_color}"
+        return hashlib.md5(key.encode()).hexdigest()
 
-    def _empty_image(self, device=None):
-        device = device or torch.device("cpu")
-        return torch.zeros((1, 1, 1, 3), dtype=torch.float32, device=device)
+    @classmethod
+    def execute(cls, do_resize, resize_to_bounds, width, height,
+                resize_algorithm, resize_type, pad_color_source, pad_color,
+                crop_pad_position, image=None, mask=None) -> io.NodeOutput:
 
-    def _empty_mask(self, device=None):
-        device = device or torch.device("cpu")
-        return torch.zeros((1, 1, 1), dtype=torch.float32, device=device)
-
-    def _parse_pad_color(self, s: str):
-        nums = re.findall(r"-?\d+", s or "")
-        if len(nums) >= 3:
-            rgb = [int(nums[0]), int(nums[1]), int(nums[2])]
-        else:
-            rgb = [0, 0, 0]
-        rgb = [max(0, min(255, v)) for v in rgb]
-        return (rgb[0], rgb[1], rgb[2])
-
-    def _parse_resize_to_bounds(self, value: str, fallback_w: int, fallback_h: int):
-        if value == "User Width x Height":
-            return fallback_w, fallback_h
-        match = re.match(r"^\s*(\d+)\s*x\s*(\d+)\s*$", value or "")
-        if match:
-            return int(match.group(1)), int(match.group(2))
-        return fallback_w, fallback_h
-
-    def _to_pil_rgb(self, img: torch.Tensor) -> Image.Image:
-        x = img.detach()
-        if x.ndim == 4:
-            x = x[0]
-        x = x.clamp(0, 1)
-        x = (x * 255.0).round().to(torch.uint8).cpu().numpy()
-        return Image.fromarray(x, mode="RGB")
-
-    def _to_pil_l(self, m: torch.Tensor) -> Image.Image:
-        x = m.detach()
-        if x.ndim == 3:
-            x = x[0]
-        x = x.clamp(0, 1)
-        x = (x * 255.0).round().to(torch.uint8).cpu().numpy()
-        return Image.fromarray(x, mode="L")
-
-    def _from_pil_rgb(self, pil: Image.Image, device) -> torch.Tensor:
-        b = pil.tobytes()
-        arr = torch.frombuffer(b, dtype=torch.uint8)
-        arr = arr.view(pil.size[1], pil.size[0], 3).clone()
-        t = arr.to(dtype=torch.float32, device=device) / 255.0
-        return t.unsqueeze(0)
-
-    def _from_pil_l(self, pil: Image.Image, device) -> torch.Tensor:
-        b = pil.tobytes()
-        arr = torch.frombuffer(b, dtype=torch.uint8)
-        arr = arr.view(pil.size[1], pil.size[0]).clone()
-        t = arr.to(dtype=torch.float32, device=device) / 255.0
-        return t.unsqueeze(0)
-
-    def _resize_tensor_stretch(self, x_nchw: torch.Tensor, out_w: int, out_h: int, mode: str):
-        if out_w <= 0 or out_h <= 0:
-            return x_nchw
-        if mode == "nearest":
-            return F.interpolate(x_nchw, size=(out_h, out_w), mode="nearest")
-        if mode == "bilinear":
-            return F.interpolate(x_nchw, size=(out_h, out_w), mode="bilinear", align_corners=False)
-        return F.interpolate(x_nchw, size=(out_h, out_w), mode=mode, align_corners=False)
-
-    def _compute_fit_size(self, in_w: int, in_h: int, out_w: int, out_h: int):
-        if out_w <= 0 or out_h <= 0 or in_w <= 0 or in_h <= 0:
-            return in_w, in_h
-        scale = min(out_w / in_w, out_h / in_h)
-        nw = max(1, int(round(in_w * scale)))
-        nh = max(1, int(round(in_h * scale)))
-        return nw, nh
-
-    def _compute_cover_size(self, in_w: int, in_h: int, out_w: int, out_h: int):
-        if out_w <= 0 or out_h <= 0 or in_w <= 0 or in_h <= 0:
-            return in_w, in_h
-        scale = max(out_w / in_w, out_h / in_h)
-        nw = max(1, int(round(in_w * scale)))
-        nh = max(1, int(round(in_h * scale)))
-        return nw, nh
-
-    def _offsets_by_position(self, canvas_w: int, canvas_h: int, inner_w: int, inner_h: int, pos: str):
-        if pos == "top":
-            x0 = (canvas_w - inner_w) // 2
-            y0 = 0
-        elif pos == "bottom":
-            x0 = (canvas_w - inner_w) // 2
-            y0 = canvas_h - inner_h
-        elif pos == "left":
-            x0 = 0
-            y0 = (canvas_h - inner_h) // 2
-        elif pos == "right":
-            x0 = canvas_w - inner_w
-            y0 = (canvas_h - inner_h) // 2
-        else:
-            x0 = (canvas_w - inner_w) // 2
-            y0 = (canvas_h - inner_h) // 2
-        return x0, y0
-
-    def _resize_image(self, image: torch.Tensor, out_w: int, out_h: int, alg: str, rtype: str, pad_color: str, crop_pos: str):
-        if image is None:
-            return None
-        device = image.device
-        b, h, w, c = image.shape
-        if out_w <= 0 or out_h <= 0:
-            return image
-
-        if alg == "lanczos":
-            fill = self._parse_pad_color(pad_color)
-            out_list = []
-            for i in range(b):
-                pil = self._to_pil_rgb(image[i:i+1])
-                if rtype == "stretch":
-                    pil2 = pil.resize((out_w, out_h), Image.Resampling.LANCZOS)
-                elif rtype == "fit":
-                    nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-                    pil2 = pil.resize((nw, nh), Image.Resampling.LANCZOS)
-                elif rtype == "pad":
-                    nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-                    inner = pil.resize((nw, nh), Image.Resampling.LANCZOS)
-                    canvas = Image.new("RGB", (out_w, out_h), fill)
-                    x0, y0 = self._offsets_by_position(out_w, out_h, nw, nh, "center")
-                    canvas.paste(inner, (x0, y0))
-                    pil2 = canvas
-                else:
-                    nw, nh = self._compute_cover_size(w, h, out_w, out_h)
-                    inner = pil.resize((nw, nh), Image.Resampling.LANCZOS)
-                    x0, y0 = self._offsets_by_position(nw, nh, out_w, out_h, crop_pos)
-                    x0 = max(0, min(nw - out_w, x0))
-                    y0 = max(0, min(nh - out_h, y0))
-                    pil2 = inner.crop((x0, y0, x0 + out_w, y0 + out_h))
-                out_list.append(self._from_pil_rgb(pil2, device))
-            return torch.cat(out_list, dim=0)
-
-        mode = "nearest" if alg == "nearest-exact" else ("bilinear" if alg == "bilinear" else "bicubic")
-        x = image.permute(0, 3, 1, 2)
-
-        if rtype == "stretch":
-            y = self._resize_tensor_stretch(x, out_w, out_h, mode)
-            return y.permute(0, 2, 3, 1)
-
-        if rtype == "fit":
-            nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-            y = self._resize_tensor_stretch(x, nw, nh, mode)
-            return y.permute(0, 2, 3, 1)
-
-        if rtype == "pad":
-            nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-            inner = self._resize_tensor_stretch(x, nw, nh, mode)
-            fill = torch.tensor(self._parse_pad_color(pad_color), device=device, dtype=torch.float32).view(1, 3, 1, 1) / 255.0
-            canvas = fill.expand(b, 3, out_h, out_w).clone()
-            x0, y0 = self._offsets_by_position(out_w, out_h, nw, nh, "center")
-            x0 = max(0, min(out_w - nw, x0))
-            y0 = max(0, min(out_h - nh, y0))
-            canvas[:, :, y0:y0+nh, x0:x0+nw] = inner
-            return canvas.permute(0, 2, 3, 1)
-
-        nw, nh = self._compute_cover_size(w, h, out_w, out_h)
-        inner = self._resize_tensor_stretch(x, nw, nh, mode)
-        x0, y0 = self._offsets_by_position(nw, nh, out_w, out_h, crop_pos)
-        x0 = max(0, min(nw - out_w, x0))
-        y0 = max(0, min(nh - out_h, y0))
-        cropped = inner[:, :, y0:y0+out_h, x0:x0+out_w]
-        return cropped.permute(0, 2, 3, 1)
-
-    def _resize_mask(self, mask: torch.Tensor, out_w: int, out_h: int, alg: str, rtype: str, crop_pos: str):
-        if mask is None:
-            return None
-        device = mask.device
-        b, h, w = mask.shape
-        if out_w <= 0 or out_h <= 0:
-            return mask
-
-        if alg == "lanczos":
-            out_list = []
-            for i in range(b):
-                pil = self._to_pil_l(mask[i:i+1])
-                if rtype == "stretch":
-                    pil2 = pil.resize((out_w, out_h), Image.Resampling.LANCZOS)
-                elif rtype == "fit":
-                    nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-                    pil2 = pil.resize((nw, nh), Image.Resampling.LANCZOS)
-                elif rtype == "pad":
-                    nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-                    inner = pil.resize((nw, nh), Image.Resampling.LANCZOS)
-                    canvas = Image.new("L", (out_w, out_h), 0)
-                    x0, y0 = self._offsets_by_position(out_w, out_h, nw, nh, "center")
-                    canvas.paste(inner, (x0, y0))
-                    pil2 = canvas
-                else:
-                    nw, nh = self._compute_cover_size(w, h, out_w, out_h)
-                    inner = pil.resize((nw, nh), Image.Resampling.LANCZOS)
-                    x0, y0 = self._offsets_by_position(nw, nh, out_w, out_h, crop_pos)
-                    x0 = max(0, min(nw - out_w, x0))
-                    y0 = max(0, min(nh - out_h, y0))
-                    pil2 = inner.crop((x0, y0, x0 + out_w, y0 + out_h))
-                out_list.append(self._from_pil_l(pil2, device))
-            return torch.cat(out_list, dim=0)
-
-        mode = "nearest" if alg == "nearest-exact" else ("bilinear" if alg == "bilinear" else "bicubic")
-        x = mask.unsqueeze(1)
-
-        if rtype == "stretch":
-            y = self._resize_tensor_stretch(x, out_w, out_h, mode)
-            return y[:, 0, :, :]
-
-        if rtype == "fit":
-            nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-            y = self._resize_tensor_stretch(x, nw, nh, mode)
-            return y[:, 0, :, :]
-
-        if rtype == "pad":
-            nw, nh = self._compute_fit_size(w, h, out_w, out_h)
-            inner = self._resize_tensor_stretch(x, nw, nh, mode)[:, 0, :, :]
-            canvas = torch.zeros((b, out_h, out_w), dtype=mask.dtype, device=device)
-            x0, y0 = self._offsets_by_position(out_w, out_h, nw, nh, "center")
-            x0 = max(0, min(out_w - nw, x0))
-            y0 = max(0, min(out_h - nh, y0))
-            canvas[:, y0:y0+nh, x0:x0+nw] = inner
-            return canvas
-
-        nw, nh = self._compute_cover_size(w, h, out_w, out_h)
-        inner = self._resize_tensor_stretch(x, nw, nh, mode)[:, 0, :, :]
-        x0, y0 = self._offsets_by_position(nw, nh, out_w, out_h, crop_pos)
-        x0 = max(0, min(nw - out_w, x0))
-        y0 = max(0, min(nh - out_h, y0))
-        return inner[:, y0:y0+out_h, x0:x0+out_w]
-
-    def run(self, do_resize=True, resize_to_bounds="User Width x Height", width=0, height=0, resize_algorithm="nearest-exact",
-            resize_type="stretch", pad_color="0, 0, 0", crop_position="center",
-            image=None, mask=None):
-
-        out_img = image
-        out_mask = mask
+        device = (image.device if image is not None else
+                  mask.device  if mask  is not None else torch.device("cpu"))
 
         if image is None and mask is None:
-            dev = torch.device("cpu")
-            return (self._empty_image(dev), self._empty_mask(dev))
-
-        device = (image.device if image is not None else mask.device)
+            return io.NodeOutput(_empty_image(device), _empty_mask(device))
 
         if not do_resize:
-            if out_img is None:
-                out_img = self._empty_image(device)
-            if out_mask is None:
-                out_mask = self._empty_mask(device)
-            return (out_img, out_mask)
+            return io.NodeOutput(
+                image if image is not None else _empty_image(device),
+                mask  if mask  is not None else _empty_mask(device),
+            )
 
-        user_w = int(width) if width is not None else 0
-        user_h = int(height) if height is not None else 0
-        out_w, out_h = self._parse_resize_to_bounds(resize_to_bounds, user_w, user_h)
+        out_w, out_h = _parse_resize_to_bounds(resize_to_bounds, int(width), int(height))
+        fill = _resolve_pad_color(pad_color_source, pad_color, image)
 
-        if out_img is not None:
-            out_img = self._resize_image(out_img, out_w, out_h, resize_algorithm, resize_type, pad_color, crop_position)
-        if out_mask is not None:
-            out_mask = self._resize_mask(out_mask, out_w, out_h, resize_algorithm, resize_type, crop_position)
+        out_img  = _resize_image(image, out_w, out_h, resize_algorithm, resize_type, fill, crop_pad_position) if image is not None else _empty_image(device)
+        out_mask = _resize_mask(mask,   out_w, out_h, resize_algorithm, resize_type,       crop_pad_position) if mask  is not None else _empty_mask(device)
 
-        if out_img is None:
-            out_img = self._empty_image(device)
-        if out_mask is None:
-            out_mask = self._empty_mask(device)
-
-        return (out_img, out_mask)
+        return io.NodeOutput(out_img, out_mask)
 
 
-NODE_CLASS_MAPPINGS = {
-    "AKResizeOnBoolean": AKResizeOnBoolean
-}
+class AKResizeOnBooleanExtension(ComfyExtension):
+    async def get_node_list(self): return [AKResizeOnBoolean]
 
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "AKResizeOnBoolean": "AK Resize On Boolean"
-}
+async def comfy_entrypoint(): return AKResizeOnBooleanExtension()
+
+NODE_CLASS_MAPPINGS      = {"AKResizeOnBoolean": AKResizeOnBoolean}
+NODE_DISPLAY_NAME_MAPPINGS = {"AKResizeOnBoolean": "AK Resize On Boolean"}
