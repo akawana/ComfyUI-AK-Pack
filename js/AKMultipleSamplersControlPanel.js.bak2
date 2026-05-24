@@ -1,5 +1,5 @@
 import { app } from "../../scripts/app.js";
-import { renderControlPanel, selectNodeByShortcut, clearShortcutCallback, callSeedInc } from "./AKMultipleSamplersControlPanel_Control.js";
+import { renderControlPanel } from "./AKMultipleSamplersControlPanel_Control.js";
 import { renderSettingsPanel } from "./AKMultipleSamplersControlPanel_Settings.js";
 import { renderGroupsPanel } from "./AKMultipleSamplersControlPanel_Groups.js";
 import { renderGroupsSettingsPanel } from "./AKMultipleSamplersControlPanel_GroupsSettings.js";
@@ -12,46 +12,6 @@ const ICON_URL_OFF = new URL("./img/i_toolbal_control_off.png", import.meta.url)
 const ICON_URL_ON = new URL("./img/i_toolbal_control_on.png", import.meta.url).toString();
 
 const STORE_KEY = "ak_multiple_samplers_control_panel";
-
-// ── Shortcut manager ──────────────────────────────────────────────────────────
-// Ctrl+Shift+1..9 switches the selected sampler.
-// The listener is active ONLY while the Samplers tab is open.
-
-let _shortcutActive = false;
-
-function _onShortcutKey(e) {
-  if (!e.altKey || e.ctrlKey || e.shiftKey) return;
-
-  // Alt+` — increment seed by 1
-  if (e.key === "`") {
-    e.preventDefault();
-    e.stopPropagation();
-    callSeedInc();
-    return;
-  }
-
-  // Alt+1..9 — select node by shortcut
-  const digit = Number(e.key);
-  if (!Number.isInteger(digit) || digit < 1 || digit > 9) return;
-  e.preventDefault();
-  e.stopPropagation();
-  // console.log("[MSCP shortcut] keydown Alt+" + digit);
-  const result = selectNodeByShortcut(digit, getStore, getControlledNodes);
-  // console.log("[MSCP shortcut] selectNodeByShortcut returned:", result);
-}
-
-function _enableShortcuts() {
-  if (_shortcutActive) return;
-  _shortcutActive = true;
-  window.addEventListener("keydown", _onShortcutKey, true);
-}
-
-function _disableShortcuts() {
-  if (!_shortcutActive) return;
-  _shortcutActive = false;
-  window.removeEventListener("keydown", _onShortcutKey, true);
-  clearShortcutCallback();
-}
 
 // const SETTINGS_ENABLE_ID = "AK.MultipleSamplersControl.Enable";
 const ENABLE_STYLE_ID = "ak-mscp-enabled-visibility-style";
@@ -95,7 +55,7 @@ function applyEnabledState(enabled) {
     .${TAB_ID}-tab-button { display: none !important; }
   `;
 
-  if (!on) { _disableShortcuts(); closeThisTab(); }
+  if (!on) closeThisTab();
 }
 
 function getStore() {
@@ -115,10 +75,9 @@ function getStore() {
 
 function tokenizeNodesList(text) {
   const raw = String(text ?? "");
-  const SHORTCUT_PREFIX_RE = /^\[([1-9])\]\s*/;
   return raw
     .split(/[\n,;]+/g)
-    .map(s => s.trim().replace(SHORTCUT_PREFIX_RE, "").trim())
+    .map(s => s.trim())
     .filter(Boolean);
 }
 
@@ -283,7 +242,6 @@ function closeThisTab() {
 
 function renderPanel(el) {
   el.innerHTML = "";
-  _disableShortcuts();
 
   if (!isFeatureEnabled()) {
     const msg = document.createElement("div");
@@ -318,7 +276,6 @@ function renderPanel(el) {
   closeBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    _disableShortcuts();
     closeThisTab();
   });
 
@@ -362,9 +319,6 @@ function renderPanel(el) {
       btn.style.background   = active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)";
       btn.style.borderColor  = active ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)";
     }
-
-    if (which === "samplers") _enableShortcuts();
-    else _disableShortcuts();
 
     content.innerHTML = "";
     if (which === "samplers")         renderControlPanel(content, { getStore, getControlledNodes });

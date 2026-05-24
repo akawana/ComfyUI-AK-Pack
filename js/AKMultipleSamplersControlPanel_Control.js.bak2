@@ -5,29 +5,6 @@ const STORE_KEY = "ak_multiple_samplers_control_panel";
 
 const DEBUG_LOGS = false;
 
-// ── Shortcut callback ─────────────────────────────────────────────────────────
-// renderControlPanel registers a function here so the shortcut handler in
-// the main panel file can call it directly — no querySelector needed.
-let _shortcutSelectCallback = null;
-let _shortcutSeedIncCallback = null;
-
-export function registerShortcutCallback(fn) {
-  _shortcutSelectCallback = typeof fn === "function" ? fn : null;
-}
-
-export function clearShortcutCallback() {
-  _shortcutSelectCallback = null;
-  _shortcutSeedIncCallback = null;
-}
-
-export function registerSeedIncCallback(fn) {
-  _shortcutSeedIncCallback = typeof fn === "function" ? fn : null;
-}
-
-export function callSeedInc() {
-  if (typeof _shortcutSeedIncCallback === "function") _shortcutSeedIncCallback();
-}
-
 const FIELD_ALIASES = {
   seed: ["seed", "seed_value"],
 };
@@ -142,8 +119,9 @@ function mkKeyLabel(text) {
   td.style.paddingRight = "8px";
   td.style.paddingTop = "6px";
   td.style.paddingBottom = "6px";
-  td.style.maxWidth = "50%";
+  td.style.whiteSpace = "normal";
   td.style.wordBreak = "break-word";
+  td.style.maxWidth = "50%";
   td.style.verticalAlign = "middle";
   return td;
 }
@@ -411,7 +389,6 @@ export function renderControlPanel(el, ctx = null) {
 
   const label = mkLabel("Choose Sampler:");
   const select = mkSelect();
-  select.classList.add("ak-mscp-sampler-select");
 
   const fieldsWrap = document.createElement("table");
   fieldsWrap.style.width = "100%";
@@ -606,26 +583,6 @@ export function renderControlPanel(el, ctx = null) {
     syncFromNode();
     scheduleRefresh();
   });
-
-  // Register shortcut callback — lets the shortcut handler select a node
-  // directly by id without any DOM querying.
-  registerShortcutCallback((nodeId) => {
-    // console.log("[MSCP shortcut] callback called nodeId=", nodeId);
-    const st = getStore();
-    st.selected_sampler_id = String(nodeId);
-    select.value = String(nodeId);
-    // console.log("[MSCP shortcut] select.value after set=", select.value, "options count=", select.options.length);
-    syncFromNode();
-    scheduleRefresh();
-  });
-
-  // Register seed +1 callback for the ` shortcut.
-  registerSeedIncCallback(() => {
-    const inp = fields["seed"];
-    if (!inp) return;
-    bumpNumberInput(inp, 1);
-    applyFieldToNode("seed", true);
-  });
   runOnChangeCheckbox.addEventListener("change", () => {
     const st = getStore();
     st.run_on_change_panel = runOnChangeCheckbox.checked === true;
@@ -769,87 +726,6 @@ export function renderControlPanel(el, ctx = null) {
     window.removeEventListener("mouseup", onWindowMouseUp);
     window.removeEventListener("keydown", onWindowKeyDown);
     el.removeEventListener("DOMNodeRemovedFromDocument", onRemoved);
-    clearShortcutCallback();
   };
   el.addEventListener("DOMNodeRemovedFromDocument", onRemoved);
-}
-
-/**
- * Parse the nodes_list string and return a Map<number, nodeId_string>
- * where key is the shortcut digit (1-9).
- * Only the FIRST occurrence of each digit is kept.
- * For tokens that match multiple nodes the shortcut goes to the first one.
- */
-export function buildShortcutMap(getStore, getControlledNodes) {
-  const st = getStore();
-  const raw = String(st.nodes_list ?? "");
-  // console.log("[MSCP shortcut] buildShortcutMap nodes_list=", raw);
-  const lines = raw.split(/[\n,;]+/g);
-
-  // Parse [N] prefix from each token
-  const SHORTCUT_RE = /^\s*\[([1-9])\]\s*/;
-  const parsed = [];
-  for (const line of lines) {
-    const m = line.match(SHORTCUT_RE);
-    if (m) {
-      const digit = Number(m[1]);
-      const token = line.slice(m[0].length).trim();
-      if (token) parsed.push({ digit, token });
-    }
-  }
-
-  if (!parsed.length) return new Map();
-
-  // Build full controlled nodes list to resolve tokens → node ids
-  const allNodes = getControlledNodes();
-
-  function isIntToken(tok) {
-    return /^[0-9]+$/.test(tok) && Number.isFinite(Number(tok));
-  }
-
-  const byId = new Map(allNodes.map(n => [n?.id, n]));
-  const shortcutMap = new Map(); // digit → node_id string
-  const usedDigits = new Set();
-
-  for (const { digit, token } of parsed) {
-    if (usedDigits.has(digit)) continue; // first occurrence wins
-
-    let foundId = null;
-    if (isIntToken(token)) {
-      const n = byId.get(Number(token));
-      if (n) foundId = String(n.id);
-    } else {
-      const sub = token.toLowerCase();
-      for (const n of allNodes) {
-        const t = String(n?.title ?? n?.type ?? "");
-        if (t.toLowerCase().includes(sub)) {
-          foundId = String(n.id);
-          break; // first match only
-        }
-      }
-    }
-
-    if (foundId !== null) {
-      shortcutMap.set(digit, foundId);
-      usedDigits.add(digit);
-    }
-  }
-
-  return shortcutMap;
-}
-
-/**
- * Select the node mapped to `digit` in the sampler select element.
- * Returns true if a node was selected.
- */
-export function selectNodeByShortcut(digit, getStore, getControlledNodes) {
-  // console.log("[MSCP shortcut] selectNodeByShortcut digit=" + digit + " callback=", typeof _shortcutSelectCallback);
-  if (typeof _shortcutSelectCallback !== "function") return false;
-  const map = buildShortcutMap(getStore, getControlledNodes);
-  // console.log("[MSCP shortcut] shortcutMap=", Object.fromEntries(map));
-  const nodeId = map.get(digit);
-  // console.log("[MSCP shortcut] nodeId for digit " + digit + "=", nodeId);
-  if (nodeId === undefined) return false;
-  _shortcutSelectCallback(nodeId);
-  return true;
 }
