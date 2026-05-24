@@ -1,0 +1,142 @@
+import re
+
+from comfy_api.latest import ComfyExtension, io
+from .PromptUtils import clearLineBreaks, formatTags
+
+
+def _parse_exclude_tags(raw: str) -> list[str]:
+    """
+    Parse the exclude_tags widget string into a list of normalised tag strings.
+
+    Each tag is split by comma or newline, stripped of whitespace, and stored
+    in its underscore form (spaces replaced with underscores) so we can match
+    both variants in the source text.
+    """
+    if not raw or not raw.strip():
+        return []
+    parts = re.split(r"[,\n]", raw)
+    tags = []
+    for p in parts:
+        t = p.strip()
+        if t:
+            # Normalise to underscore form as the canonical key.
+            tags.append(t.replace(" ", "_"))
+    return tags
+
+
+def _exclude_tags_from_text(text: str, tags: list[str]) -> str:
+    """
+    Remove every occurrence of each tag from *text*.
+
+    Each tag is matched in both its underscore form (``long_hair``) and its
+    space form (``long hair``), case-insensitively.  The tag is removed along
+    with its surrounding delimiter characters (leading/trailing spaces and an
+    optional trailing comma + whitespace or a leading comma + whitespace).
+    """
+    for tag_underscore in tags:
+        tag_space = tag_underscore.replace("_", " ")
+
+        for variant in (re.escape(tag_underscore), re.escape(tag_space)):
+            # Match the tag when it appears between delimiters:
+            # optional leading comma+spaces, the tag itself, optional
+            # trailing comma+spaces.  We consume the comma on one side only
+            # to avoid eating delimiters that belong to adjacent tags.
+            pattern = re.compile(
+                r"(?:,\s*)?" + variant + r"(?:\s*,)?",
+                re.IGNORECASE,
+            )
+            text = pattern.sub("", text)
+
+    return text
+
+
+class AKClearPrompt(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="AKClearPrompt",
+            display_name="AK Clear Prompt",
+            category="AK/dataset",
+            description=(
+                "Cleans a prompt string: optionally removes line breaks, "
+                "replaces underscores with spaces, strips specified tags, "
+                "and reformats the result."
+            ),
+            inputs=[
+                io.String.Input(
+                    "text",
+                    default="",
+                    multiline=True,
+                    force_input=True,
+                ),
+                io.Boolean.Input(
+                    "clear_line_breaks",
+                    default=True,
+                ),
+                io.Boolean.Input(
+                    "replace_underscore",
+                    default=True,
+                ),
+                io.String.Input(
+                    "exclude_tags",
+                    default="",
+                    multiline=True,
+                ),
+            ],
+            outputs=[
+                io.String.Output(display_name="text"),
+            ],
+            hidden=[io.Hidden.unique_id],
+        )
+
+    @classmethod
+    def execute(
+        cls,
+        text: str = "",
+        clear_line_breaks: bool = True,
+        replace_underscore: bool = True,
+        exclude_tags: str = "",
+    ) -> io.NodeOutput:
+
+        result = text or ""
+
+        if not result.strip():
+            return io.NodeOutput("")
+
+        # 1. Remove line breaks.
+        if clear_line_breaks:
+            result = clearLineBreaks(result)
+
+        # 2. Replace underscores with spaces.
+        if replace_underscore:
+            result = result.replace("_", " ")
+
+        # 3. Remove excluded tags (matched as underscore and space variants).
+        tags = _parse_exclude_tags(exclude_tags)
+        if tags:
+            # If underscores were already replaced we need space-form keys;
+            # _exclude_tags_from_text handles both variants regardless.
+            result = _exclude_tags_from_text(result, tags)
+
+        # 4. Reformat tags.
+        result = formatTags(result)
+
+        return io.NodeOutput(result)
+
+
+class AKClearPromptExtension(ComfyExtension):
+    async def get_node_list(self) -> list[type[io.ComfyNode]]:
+        return [AKClearPrompt]
+
+
+async def comfy_entrypoint() -> AKClearPromptExtension:
+    return AKClearPromptExtension()
+
+
+NODE_CLASS_MAPPINGS = {
+    "AKClearPrompt": AKClearPrompt,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "AKClearPrompt": "AK Clear Prompt",
+}

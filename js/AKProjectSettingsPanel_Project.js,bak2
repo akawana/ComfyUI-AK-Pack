@@ -492,20 +492,24 @@ export function renderProjectTab(rootEl) {
       if (!imageBlob) return;
 
       const st = readProjectSettingsValues();
+      const currentName = st.open_image_filename && st.open_image_filename !== "DISABLED"
+        ? st.open_image_filename
+        : null;
 
       const ext = imageBlob.type === "image/png" ? "png"
         : imageBlob.type === "image/jpeg" ? "jpg"
         : imageBlob.type === "image/webp" ? "webp"
         : "png";
 
-      const workflowName = (
-        app.workflowManager?.activeWorkflow?.filename ||
-        app.graph?.filename ||
-        "workflow"
-      ).replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_\-]/g, "_").slice(0, 40);
-
-      const clientSuffix = (app.clientId || "").slice(0, 8);
-      const targetName = "paste_" + workflowName + (clientSuffix ? "_" + clientSuffix : "") + "_" + Date.now().toString(36) + "." + ext;
+      let targetName;
+      if (currentName) {
+        const dot = currentName.lastIndexOf(".");
+        targetName = dot > 0
+          ? currentName.slice(0, dot) + "." + ext
+          : currentName + "." + ext;
+      } else {
+        targetName = "paste_" + Math.random().toString(36).slice(2, 10) + "." + ext;
+      }
 
       const file = new File([imageBlob], targetName, { type: imageBlob.type });
 

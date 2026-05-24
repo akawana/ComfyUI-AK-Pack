@@ -121,25 +121,6 @@ export function renderSettingsPanel(el) {
   const changeDelayInput = mkInput();
   changeDelayInput.value = String(st.change_delay);
 
-  // ── Visibility toggles ──────────────────────────────────────────────────────
-  function mkToggleRow(labelText, checked) {
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin:10px 0 4px;";
-    const lbl = document.createElement("div");
-    lbl.textContent = labelText;
-    lbl.style.cssText = `font-size:${LABEL_FONT_SIZE_PX}px;opacity:0.85;`;
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = checked !== false;
-    cb.style.cssText = "width:18px;height:18px;cursor:pointer;";
-    row.appendChild(lbl);
-    row.appendChild(cb);
-    return { row, cb };
-  }
-
-  const { row: cycleToggleRow, cb: cycleToggleCb }  = mkToggleRow("Show detailer_cycle",  st.show_detailer_cycle !== false);
-  const { row: guideToggleRow,  cb: guideToggleCb  } = mkToggleRow("Show detailer_guide",  st.show_detailer_guide !== false);
-
   let saveTimer = 0;
   const scheduleSave = () => {
     if (saveTimer) window.clearTimeout(saveTimer);
@@ -171,9 +152,6 @@ export function renderSettingsPanel(el) {
       s.change_delay = Number.isFinite(cd) && cd >= 0 ? Math.trunc(cd) : 300;
       changeDelayInput.value = String(s.change_delay);
 
-      s.show_detailer_cycle = cycleToggleCb.checked === true;
-      s.show_detailer_guide = guideToggleCb.checked  === true;
-
       const g = app?.graph;
       if (g) {
         if (typeof g.setDirtyCanvas === "function") g.setDirtyCanvas(true, true);
@@ -188,8 +166,6 @@ export function renderSettingsPanel(el) {
   cfgStepInput.addEventListener("input", scheduleSave);
   denoiseStepInput.addEventListener("input", scheduleSave);
   changeDelayInput.addEventListener("input", scheduleSave);
-  cycleToggleCb.addEventListener("change", scheduleSave);
-  guideToggleCb.addEventListener("change",  scheduleSave);
   // detailerCyclesInput.addEventListener("input", scheduleSave);
 
   el.appendChild(nodesLabel);
@@ -206,6 +182,4 @@ export function renderSettingsPanel(el) {
   // el.appendChild(detailerCyclesInput);
   el.appendChild(changeDelayLabel);
   el.appendChild(changeDelayInput);
-  el.appendChild(cycleToggleRow);
-  el.appendChild(guideToggleRow);
 }

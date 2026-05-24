@@ -17,7 +17,6 @@ const FIELD_SPECS = [
   { key: "scheduler", type: "select" },
   { key: "denoise", type: "number", step: 0.01 },
   { key: "cycle", type: "number", step: 1, min: 0, label: "detailer_cycle" },
-  { key: "guide_size", type: "select", label: "detailer_guide", fixedValues: ["512", "768", "1024", "1280", "1536", "2048"], defaultValue: "768" },
 ];
 const FIXED_2_DECIMALS_KEYS = new Set(["cfg", "denoise"]);
 
@@ -106,24 +105,22 @@ function mkSelect() {
 }
 
 function mkRow() {
-  const r = document.createElement("tr");
-  r.style.margin = "0";
+  const r = document.createElement("div");
+  r.style.display = "flex";
+  r.style.alignItems = "center";
+  r.style.gap = "8px";
+  r.style.margin = "8px 0";
   return r;
 }
 
 function mkKeyLabel(text) {
-  const td = document.createElement("td");
-  td.textContent = text;
-  td.style.fontSize = `${LABEL_FONT_SIZE_PX}px`;
-  td.style.opacity = "0.85";
-  td.style.paddingRight = "8px";
-  td.style.paddingTop = "6px";
-  td.style.paddingBottom = "6px";
-  td.style.whiteSpace = "normal";
-  td.style.wordBreak = "break-word";
-  td.style.maxWidth = "50%";
-  td.style.verticalAlign = "middle";
-  return td;
+  const l = document.createElement("div");
+  l.textContent = text;
+  l.style.width = "110px";
+  l.style.flex = "0 0 110px";
+  l.style.fontSize = `${LABEL_FONT_SIZE_PX}px`;
+  l.style.opacity = "0.85";
+  return l;
 }
 
 function mkInputText() {
@@ -390,50 +387,25 @@ export function renderControlPanel(el, ctx = null) {
   const label = mkLabel("Choose Sampler:");
   const select = mkSelect();
 
-  const fieldsWrap = document.createElement("table");
-  fieldsWrap.style.width = "100%";
-  fieldsWrap.style.borderCollapse = "collapse";
+  const fieldsWrap = document.createElement("div");
   fieldsWrap.style.marginTop = "10px";
 
 
-  const runOnChangeRow = document.createElement("tr");
-  const runOnChangeLabelTd = document.createElement("td");
-  runOnChangeLabelTd.textContent = "Run on change (CTRL+mouse to ignore)";
-  runOnChangeLabelTd.style.fontSize = `${LABEL_FONT_SIZE_PX}px`;
-  runOnChangeLabelTd.style.opacity = "0.85";
-  runOnChangeLabelTd.style.paddingRight = "8px";
-  runOnChangeLabelTd.style.paddingTop = "6px";
-  runOnChangeLabelTd.style.paddingBottom = "6px";
-  runOnChangeLabelTd.style.maxWidth = "50%";
-  runOnChangeLabelTd.style.wordBreak = "break-word";
-  runOnChangeLabelTd.style.verticalAlign = "middle";
+  const runOnChangeRow = mkRow();
+  const runOnChangeLabel = mkKeyLabel("Run on change (CTRL+mouse to ignore)");
   const runOnChangeCheckbox = document.createElement("input");
   runOnChangeCheckbox.type = "checkbox";
   runOnChangeCheckbox.style.width = "18px";
   runOnChangeCheckbox.style.height = "18px";
   runOnChangeCheckbox.style.cursor = "pointer";
-  const runOnChangeCbTd = document.createElement("td");
-  runOnChangeCbTd.style.verticalAlign = "middle";
-  runOnChangeCbTd.appendChild(runOnChangeCheckbox);
-  runOnChangeRow.appendChild(runOnChangeLabelTd);
-  runOnChangeRow.appendChild(runOnChangeCbTd);
+  runOnChangeRow.appendChild(runOnChangeLabel);
+  runOnChangeRow.appendChild(runOnChangeCheckbox);
   fieldsWrap.appendChild(runOnChangeRow);
 
   const getStore = typeof ctx?.getStore === "function" ? ctx.getStore : getLocalStoreFallback;
   const getControlledNodes = typeof ctx?.getControlledNodes === "function" ? ctx.getControlledNodes : () => [];
 
-  // Init defaults for fixedValues selects
-  const st0 = getStore();
-  for (const spec of FIELD_SPECS) {
-    if (spec.fixedValues && spec.defaultValue && !st0[spec.key]) {
-      st0[spec.key] = spec.defaultValue;
-    }
-  }
-
   const getSelectValues = (key) => {
-    const spec = FIELD_SPECS.find(s => s.key === key);
-    if (spec?.fixedValues) return spec.fixedValues;
-
     const st = getStore();
     const sel = getNodeById(st.selected_sampler_id);
     const nodes = getControlledNodes();
@@ -455,36 +427,29 @@ export function renderControlPanel(el, ctx = null) {
 
   const fields = {};
   const numBtns = {};
-  const rowsByKey = {};
   for (const spec of FIELD_SPECS) {
     const row = mkRow();
     const klabel = mkKeyLabel(spec.label ?? spec.key);
-    const controlTd = document.createElement("td");
-    controlTd.style.verticalAlign = "middle";
     let control;
     if (spec.type === "select") {
       control = mkSelect();
       control.style.width = "100%";
       upsertSelectOptions(control, getSelectValues(spec.key));
       control.addEventListener("mousedown", () => upsertSelectOptions(control, getSelectValues(spec.key)));
-      controlTd.appendChild(control);
       row.appendChild(klabel);
-      row.appendChild(controlTd);
+      row.appendChild(control);
       fieldsWrap.appendChild(row);
       fields[spec.key] = control;
-      rowsByKey[spec.key] = row;
       continue;
     } else {
       const nc = mkNumberControl(spec.key, spec.step ?? 1);
       if (spec.min !== undefined) nc.input.dataset.min = String(spec.min);
       control = nc.wrap;
       numBtns[spec.key] = { dec: nc.dec, inc: nc.inc };
-      controlTd.appendChild(control);
       row.appendChild(klabel);
-      row.appendChild(controlTd);
+      row.appendChild(control);
       fieldsWrap.appendChild(row);
       fields[spec.key] = nc.input;
-      rowsByKey[spec.key] = row;
       continue;
     }
   }
@@ -498,29 +463,18 @@ export function renderControlPanel(el, ctx = null) {
     if (!node) return;
     for (const spec of FIELD_SPECS) {
       const w = findWidgetByName(node, spec.key);
+      if (!w) continue;
+      const v = w.value;
       if (spec.type === "select") {
         upsertSelectOptions(fields[spec.key], getSelectValues(spec.key));
-        if (w) {
-          fields[spec.key].value = String(w.value ?? "");
-        } else if (spec.fixedValues && spec.defaultValue) {
-          // widget not found on this node — keep default, don't force-write
-          if (!fields[spec.key].value) fields[spec.key].value = spec.defaultValue;
-        }
+        fields[spec.key].value = String(v ?? "");
         st[spec.key] = String(fields[spec.key].value ?? "");
       } else {
-        if (!w) continue;
-        const v = w.value;
         const num = typeof v === "number" ? v : Number(v);
         fields[spec.key].value = Number.isFinite(num) ? formatNumberForKey(spec.key, num, spec.step) : String(v ?? "");
         st[spec.key] = fields[spec.key].value;
       }
     }
-
-    // Apply visibility from settings
-    const showCycle = st.show_detailer_cycle !== false;
-    const showGuide = st.show_detailer_guide !== false;
-    if (rowsByKey.cycle)      rowsByKey.cycle.style.display      = showCycle ? "" : "none";
-    if (rowsByKey.guide_size) rowsByKey.guide_size.style.display = showGuide ? "" : "none";
   };
 
   const refresh = () => {
@@ -550,13 +504,10 @@ export function renderControlPanel(el, ctx = null) {
       scheduler: st.scheduler ?? "",
       denoise: st.denoise ?? "",
       cycles: st.cycles ?? "",
-      guide_size: st.guide_size ?? "",
       roc: st.run_on_change_panel === true,
       cfg_step: st.cfg_step ?? "",
       denoise_step: st.denoise_step ?? "",
       change_delay: st.change_delay ?? "",
-      show_detailer_cycle: st.show_detailer_cycle !== false,
-      show_detailer_guide: st.show_detailer_guide !== false,
     });
 
     if (sig === lastSig) return;
@@ -610,17 +561,7 @@ export function renderControlPanel(el, ctx = null) {
     if (elc.tagName === "SELECT") {
       const v = String(elc.value ?? "");
       st[key] = v;
-      if (node) {
-        const spec = FIELD_SPECS.find(s => s.key === key);
-        // fixedValues selects store numbers — write as number to the widget
-        if (spec?.fixedValues) {
-          const num = Number(v);
-          setWidgetValue(node, key, Number.isFinite(num) ? num : v);
-        } else {
-          setWidgetValue(node, key, v);
-        }
-      }
-      const reason = `fieldChange:${key}`;
+      if (node) setWidgetValue(node, key, v); const reason = `fieldChange:${key}`;
       if (st.run_on_change_panel === true && !isCtrlHeld()) {
         scheduleDelayedForceQueue(reason, sanitizeChangeDelay(st));
       }

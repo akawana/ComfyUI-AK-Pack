@@ -504,8 +504,7 @@ export function renderProjectTab(rootEl) {
         "workflow"
       ).replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_\-]/g, "_").slice(0, 40);
 
-      const clientSuffix = (app.clientId || "").slice(0, 8);
-      const targetName = "paste_" + workflowName + (clientSuffix ? "_" + clientSuffix : "") + "_" + Date.now().toString(36) + "." + ext;
+      const targetName = "paste_" + workflowName + "_" + Date.now().toString(36) + "." + ext;
 
       const file = new File([imageBlob], targetName, { type: imageBlob.type });
 

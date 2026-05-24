@@ -246,59 +246,21 @@ export function renderProjectTab(rootEl) {
   }
 
   if (enabled.width_height === true) {
-    const wCtl = mkStepControl(values.width,  1, 16384, 1);
-    const hCtl = mkStepControl(values.height, 1, 16384, 1);
-
+    const rowW = mkRow(sec);
+    rowW.appendChild(mkLabel("width"));
+    const wCtl = mkStepControl(values.width, 1, 16384, 1);
     wCtl.inp.addEventListener("change", function () {
       commitIfEnabled("width", clampInt(wCtl.inp.value, 1, 16384), enabled);
     });
+    rowW.appendChild(wCtl.wrap);
+
+    const rowH = mkRow(sec);
+    rowH.appendChild(mkLabel("height"));
+    const hCtl = mkStepControl(values.height, 1, 16384, 1);
     hCtl.inp.addEventListener("change", function () {
       commitIfEnabled("height", clampInt(hCtl.inp.value, 1, 16384), enabled);
     });
-
-    // Labels row: width [swap] height
-    const labelsRow = document.createElement("div");
-    labelsRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:6px;";
-
-    const wLabel = document.createElement("div");
-    wLabel.textContent = "width";
-    wLabel.style.cssText = "flex:1;text-align:center;opacity:0.92;";
-
-    const swapBtn = document.createElement("button");
-    swapBtn.type = "button";
-    swapBtn.textContent = "◀▶";
-    swapBtn.title = "Swap width ↔ height";
-    swapBtn.style.cssText = "width:34px;height:30px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.06);color:inherit;cursor:pointer;font-size:11px;flex:0 0 auto;";
-
-    swapBtn.addEventListener("mousedown", function (e) {
-      e.preventDefault();
-      const wVal = clampInt(wCtl.inp.value, 1, 16384);
-      const hVal = clampInt(hCtl.inp.value, 1, 16384);
-      wCtl.inp.value = String(hVal);
-      hCtl.inp.value = String(wVal);
-      commitIfEnabled("width",  hVal, enabled);
-      commitIfEnabled("height", wVal, enabled);
-      swapBtn.blur();
-    });
-
-    const hLabel = document.createElement("div");
-    hLabel.textContent = "height";
-    hLabel.style.cssText = "flex:1;text-align:center;opacity:0.92;";
-
-    labelsRow.appendChild(wLabel);
-    labelsRow.appendChild(swapBtn);
-    labelsRow.appendChild(hLabel);
-
-    // Controls row: [◀] w [▶] [◀] h [▶]
-    const controlsRow = document.createElement("div");
-    controlsRow.style.cssText = "display:flex;align-items:center;gap:6px;";
-    wCtl.wrap.style.flex = "1";
-    hCtl.wrap.style.flex = "1";
-    controlsRow.appendChild(wCtl.wrap);
-    controlsRow.appendChild(hCtl.wrap);
-
-    sec.appendChild(labelsRow);
-    sec.appendChild(controlsRow);
+    rowH.appendChild(hCtl.wrap);
   }
 
   if (enabled.do_resize === true) {
@@ -492,20 +454,24 @@ export function renderProjectTab(rootEl) {
       if (!imageBlob) return;
 
       const st = readProjectSettingsValues();
+      const currentName = st.open_image_filename && st.open_image_filename !== "DISABLED"
+        ? st.open_image_filename
+        : null;
 
       const ext = imageBlob.type === "image/png" ? "png"
         : imageBlob.type === "image/jpeg" ? "jpg"
         : imageBlob.type === "image/webp" ? "webp"
         : "png";
 
-      const workflowName = (
-        app.workflowManager?.activeWorkflow?.filename ||
-        app.graph?.filename ||
-        "workflow"
-      ).replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_\-]/g, "_").slice(0, 40);
-
-      const clientSuffix = (app.clientId || "").slice(0, 8);
-      const targetName = "paste_" + workflowName + (clientSuffix ? "_" + clientSuffix : "") + "_" + Date.now().toString(36) + "." + ext;
+      let targetName;
+      if (currentName) {
+        const dot = currentName.lastIndexOf(".");
+        targetName = dot > 0
+          ? currentName.slice(0, dot) + "." + ext
+          : currentName + "." + ext;
+      } else {
+        targetName = "paste_" + Math.random().toString(36).slice(2, 10) + "." + ext;
+      }
 
       const file = new File([imageBlob], targetName, { type: imageBlob.type });
 

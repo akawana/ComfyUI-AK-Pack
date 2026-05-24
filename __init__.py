@@ -5,7 +5,7 @@ import importlib
 _NODE_MODULES = [
     "AKIndexMultiple",
     "AKCLIPEncodeMultiple",
-    "IsOneOfGroupsActive",
+    "AKIsOneOfGroupsActive",
     "RepeatGroupState",
     "PreviewRawText",
     "CLIPTextEncodeCached",
@@ -28,6 +28,7 @@ _NODE_MODULES = [
     "AKListLength",
     "AKMakeListFromAny",
     "AKSaveImageAndData",
+    "AKClearPrompt",
 ]
 
 NODE_CLASS_MAPPINGS = {}
