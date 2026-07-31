@@ -79,11 +79,9 @@ export function readProjectSettingsValues() {
 
 export function writeProjectSettingsValues(next) {
   const extra = getGraphExtra();
-  if (!extra) return [];
+  if (!extra) return;
 
-  const prev = extra[AK_PSP_VALUE_KEY] || {};
-
-  const updated = {
+  extra[AK_PSP_VALUE_KEY] = {
     output_filename: String(next.output_filename ?? ""),
     output_subfolder: String(next.output_subfolder ?? ""),
     width: toInt(next.width, AK_PSP_DEFAULTS.width),
@@ -97,16 +95,6 @@ export function writeProjectSettingsValues(next) {
     open_image_type: String(next.open_image_type ?? "input"),
     timestamp: Number(next.timestamp ?? 0),
   };
-
-  const changedKeys = [];
-  for (const key of Object.keys(updated)) {
-    if (key === "timestamp") continue;
-    if (prev[key] !== updated[key]) changedKeys.push(key);
-  }
-
-  extra[AK_PSP_VALUE_KEY] = updated;
-
-  return changedKeys;
 }
 
 
@@ -352,32 +340,6 @@ const TARGET_NODES = new Set([
   "AKProjectSettingsOutResize",
 ]);
 
-// Which ak_project_settings_json keys each target node actually depends on.
-// Used to avoid re-syncing/marking-dirty nodes whose relevant values didn't change.
-const NODE_FIELD_GROUPS = {
-  AKProjectSettingsOutFolder: [
-    "open_image",
-    "open_image_filename",
-    "open_image_subfolder",
-    "open_image_type",
-  ],
-  AKProjectSettingsOutImage: [
-    "open_image",
-    "open_image_filename",
-    "open_image_subfolder",
-    "open_image_type",
-  ],
-  AKProjectSettingsOutFileName: [
-    "output_filename",
-    "output_subfolder",
-  ],
-  AKProjectSettingsOutResize: [
-    "width",
-    "height",
-    "do_resize",
-  ],
-};
-
 
 function syncNode(node) {
   const extra = app.graph?.extra || {};
@@ -421,27 +383,12 @@ function syncNode(node) {
   // node.setDirtyCanvas(true, true);
 }
 
-export function syncAllProjectSettingsOutNodes(changedKeys) {
+export function syncAllProjectSettingsOutNodes() {
   const nodes = app?.graph?._nodes || [];
-
-  // changedKeys: optional iterable of ak_project_settings_json keys that changed.
-  // If omitted/null, sync everything (e.g. on graph load / initial setup).
-  let changedSet = null;
-  if (changedKeys) {
-    changedSet = changedKeys instanceof Set ? changedKeys : new Set(changedKeys);
-  }
-
   for (const n of nodes) {
-    const cls = n?.comfyClass;
-    if (!TARGET_NODES.has(cls)) continue;
-
-    if (changedSet) {
-      const relevant = NODE_FIELD_GROUPS[cls] || [];
-      const affected = relevant.some(key => changedSet.has(key));
-      if (!affected) continue;
+    if (TARGET_NODES.has(n?.comfyClass)) {
+      syncNode(n);
     }
-
-    syncNode(n);
   }
 }
 

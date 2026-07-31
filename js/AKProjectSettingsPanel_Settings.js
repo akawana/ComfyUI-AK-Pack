@@ -8,7 +8,8 @@ import {
   getGraphExtra,
   toInt,
   readProjectSettingsValues,
-  writeProjectSettingsValues
+  writeProjectSettingsValues,
+  syncAllProjectSettingsOutNodes
 } from "./AKProjectSettingsPanel.js";
 
 
@@ -159,7 +160,7 @@ function applyEnabledTransitions(enableSt) {
     if (dr === -1) v.do_resize = AK_PSP_DEFAULTS.do_resize;
   }
 
-  writeProjectSettingsValues(v);
+  syncAllProjectSettingsOutNodes(writeProjectSettingsValues(v));
 }
 
 function mkToggleButton(on) {

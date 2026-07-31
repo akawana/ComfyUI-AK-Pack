@@ -24,9 +24,9 @@ class AKIsOneOfGroupsActive(io.ComfyNode):
             ],
         )
 
-    # @classmethod
-    # def fingerprint_inputs(cls, group_name_contains, active_state):
-    #     return float("nan")
+    @classmethod
+    def fingerprint_inputs(cls, group_name_contains, active_state):
+        return float("nan")
 
     @classmethod
     def execute(cls, group_name_contains, active_state) -> io.NodeOutput:
@@ -58,9 +58,9 @@ class AKIfElseIsOneOfGroupsActive(io.ComfyNode):
             ],
         )
 
-    # @classmethod
-    # def fingerprint_inputs(cls, **kwargs):
-    #     return float("nan")
+    @classmethod
+    def fingerprint_inputs(cls, **kwargs):
+        return float("nan")
 
     @classmethod
     def execute(cls, group_name_contains, active_state, on_true=None, on_false=None) -> io.NodeOutput:

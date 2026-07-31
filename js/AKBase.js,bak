@@ -261,26 +261,3 @@ api.addEventListener("executed", async (e) => {
     // app.graph.setDirtyCanvas(true, true);
   }
 });
-
-app.registerExtension({
-  name: "AKBase.RestoreOnSwitch",
-  async setup() {
-    const origLoadGraphData = app.loadGraphData.bind(app);
-    app.loadGraphData = async function (...args) {
-      const result = await origLoadGraphData(...args);
-      // After graph is loaded, restore all AK Base nodes from their state files
-      setTimeout(async () => {
-        const nodes = app.graph?._nodes ?? [];
-        for (const node of nodes) {
-          if (node.comfyClass !== "AK Base") continue;
-          installOnNode(node);
-          try {
-            await loadFromStateFile(node);
-          } catch (_) {}
-        }
-      }, 100);
-      return result;
-    };
-  },
-});
-

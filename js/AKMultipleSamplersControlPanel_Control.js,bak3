@@ -35,17 +35,14 @@ const FIELD_ALIASES = {
 const FIELD_SPECS = [
   { key: "seed", type: "number", step: 1 },
   { key: "steps", type: "number", step: 1 },
-  { key: "cfg", type: "number", step: 0.1, ctrlClickValue: 5 },
+  { key: "cfg", type: "number", step: 0.1 },
   { key: "sampler_name", type: "select" },
   { key: "scheduler", type: "select" },
-  { key: "denoise", type: "number", step: 0.01, ctrlClickValue: 1 },
+  { key: "denoise", type: "number", step: 0.01 },
   { key: "cycle", type: "number", step: 1, min: 0, label: "detailer_cycle" },
   { key: "guide_size", type: "select", label: "detailer_guide", fixedValues: ["512", "768", "1024", "1280", "1536", "2048"], defaultValue: "768" },
 ];
 const FIXED_2_DECIMALS_KEYS = new Set(["cfg", "denoise"]);
-
-// ── In-memory favorites (session only, cleared on page refresh) ───────────────
-const _favorites = []; // Array of { nodeId, snapshot: {seed,steps,cfg,...} }
 
 // After DEBUG_LOGS line, add:
 let _ctrlHeld = false;
@@ -282,16 +279,6 @@ function setWidgetValue(node, widgetName, value) {
     if (typeof w.callback === "function") w.callback(w.value, app?.canvas, node, null, null);
   } catch (_) { }
 
-  if (widgetName === "guide_size") {
-    const wMax = findWidgetByName(node, "max_size");
-    if (wMax && wMax.value !== w.value) {
-      wMax.value = w.value;
-      try {
-        if (typeof wMax.callback === "function") wMax.callback(wMax.value, app?.canvas, node, null, null);
-      } catch (_) { }
-    }
-  }
-
   if (typeof node?.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
   return true;
 }
@@ -418,97 +405,6 @@ function setOptions(selectEl, nodes, selectedId) {
   selectEl.value = hasWant ? want : (prev && Array.from(selectEl.options).some(o => o.value === prev) ? prev : want);
 }
 
-const ICON_FAV = new URL("./img/i_favorites.png", import.meta.url).toString();
-const ICON_FAV_RESET = new URL("./img/i_favorites_reset.png", import.meta.url).toString();
-
-function _snapshotLabel(snap) {
-  const seed = String(snap.seed ?? "").slice(-6);
-  const cfg = formatNumberForKey("cfg", Number(snap.cfg ?? 0), 0.1);
-  const den = formatNumberForKey("denoise", Number(snap.denoise ?? 0), 0.01);
-  return `${seed}\n${cfg}\n${den}`;
-}
-
-function _mkIconBtn(iconUrl, title, fallbackText, onClick) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.title = title;
-  btn.style.cssText = [
-    "width:52px;height:52px;",
-    "border-radius:8px;",
-    "border:1px solid rgba(255,255,255,0.14);",
-    `background:rgba(255,255,255,0.06) url("${iconUrl}") no-repeat center/28px 28px;`,
-    "cursor:pointer;",
-    "flex-shrink:0;",
-  ].join("");
-  btn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); onClick(); btn.blur(); });
-  return btn;
-}
-
-function _mkFavBtn(snap, currentNodeId, onApply) {
-  const active = snap.nodeId === currentNodeId;
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.title = active ? "Apply favorite" : "Saved for a different node";
-  btn.style.cssText = [
-    "width:52px;height:52px;",
-    "border-radius:8px;",
-    "border:1px solid " + (active ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)") + ";",
-    "background:" + (active ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.03)") + ";",
-    "cursor:" + (active ? "pointer" : "default") + ";",
-    "flex-shrink:0;",
-    "padding:2px 4px;",
-    "font-size:10px;",
-    "line-height:1.4;",
-    "white-space:pre;",
-    "text-align:center;",
-    "display:flex;",
-    "align-items:center;",
-    "justify-content:center;",
-    "color:" + (active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.25)") + ";",
-    "font-family:monospace;",
-    "overflow:hidden;",
-    "box-sizing:border-box;",
-  ].join("");
-  btn.textContent = _snapshotLabel(snap);
-  if (active) {
-    btn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); onApply(snap); btn.blur(); });
-  }
-  return btn;
-}
-
-function renderFavoritesBar(container, currentNodeId, applySnapshotFn, addFavFn) {
-  container.innerHTML = "";
-  container.style.cssText = [
-    "display:flex;",
-    "flex-wrap:wrap;",
-    "gap:6px;",
-    "padding:8px 0 4px;",
-    "align-items:flex-start;",
-  ].join("");
-
-  // Reset button — always first
-  const resetBtn = _mkIconBtn(ICON_FAV_RESET, "Reset favorites", "Reset", () => {
-    _favorites.length = 0;
-    renderFavoritesBar(container, currentNodeId, applySnapshotFn, addFavFn);
-  });
-  container.appendChild(resetBtn);
-
-  // Existing favorites — between reset and add
-  for (const snap of _favorites) {
-    const btn = _mkFavBtn(snap, currentNodeId, (s) => {
-      applySnapshotFn(s);
-    });
-    container.appendChild(btn);
-  }
-
-  // Add to favorites button — always last
-  const addBtn = _mkIconBtn(ICON_FAV, "Add to favorites", "+ Fav", () => {
-    addFavFn();
-    renderFavoritesBar(container, currentNodeId, applySnapshotFn, addFavFn);
-  });
-  container.appendChild(addBtn);
-}
-
 export function renderControlPanel(el, ctx = null) {
   el.innerHTML = "";
   el.style.padding = "10px";
@@ -604,8 +500,6 @@ export function renderControlPanel(el, ctx = null) {
     } else {
       const nc = mkNumberControl(spec.key, spec.step ?? 1);
       if (spec.min !== undefined) nc.input.dataset.min = String(spec.min);
-      if (spec.max !== undefined) nc.input.dataset.max = String(spec.max);
-      if (spec.ctrlClickValue !== undefined) nc.input.dataset.ctrlClickValue = String(spec.ctrlClickValue);
       control = nc.wrap;
       numBtns[spec.key] = { dec: nc.dec, inc: nc.inc };
       controlTd.appendChild(control);
@@ -645,13 +539,11 @@ export function renderControlPanel(el, ctx = null) {
       }
     }
 
-    // Apply visibility from settings AND widget presence on the selected node
+    // Apply visibility from settings
     const showCycle = st.show_detailer_cycle !== false;
     const showGuide = st.show_detailer_guide !== false;
-    const hasCycle = !!findWidgetByName(node, "cycle");
-    const hasGuideSize = !!findWidgetByName(node, "guide_size");
-    if (rowsByKey.cycle) rowsByKey.cycle.style.display = (showCycle && hasCycle) ? "" : "none";
-    if (rowsByKey.guide_size) rowsByKey.guide_size.style.display = (showGuide && hasGuideSize) ? "" : "none";
+    if (rowsByKey.cycle)      rowsByKey.cycle.style.display      = showCycle ? "" : "none";
+    if (rowsByKey.guide_size) rowsByKey.guide_size.style.display = showGuide ? "" : "none";
   };
 
   const refresh = () => {
@@ -781,22 +673,6 @@ export function renderControlPanel(el, ctx = null) {
     const raw = String(elc.value ?? "").trim();
     const num = Number(raw);
 
-    // Clamp denoise to [0, 1]
-    if (key === "denoise" && Number.isFinite(num)) {
-      const clamped = Math.min(1, Math.max(0, num));
-      if (clamped !== num) {
-        const fixed = formatNumberForKey(key, clamped, FIELD_SPECS.find(s => s.key === key)?.step);
-        elc.value = fixed;
-        st[key] = fixed;
-        if (node) setWidgetValue(node, key, clamped);
-        const reason = `fieldChange:${key}`;
-        if (st.run_on_change_panel === true && !isCtrlHeld()) {
-          scheduleDelayedForceQueue(reason, sanitizeChangeDelay(st));
-        }
-        return;
-      }
-    }
-
     if (Number.isFinite(num)) {
       if (commitFormat && FIXED_2_DECIMALS_KEYS.has(String(key))) {
         const fixed = formatNumberForKey(key, num, FIELD_SPECS.find(s => s.key === key)?.step);
@@ -866,64 +742,9 @@ export function renderControlPanel(el, ctx = null) {
     });
   }
 
-  // Ctrl+click on number input — set to ctrlClickValue (denoise→1.00, cfg→5.00)
-  for (const spec of FIELD_SPECS) {
-    if (spec.type !== "number" || spec.ctrlClickValue === undefined) continue;
-    const inp = fields[spec.key];
-    if (!inp) continue;
-    inp.addEventListener("click", (e) => {
-      if (!e.ctrlKey) return;
-      e.preventDefault();
-      inp.value = formatNumberForKey(spec.key, spec.ctrlClickValue, spec.step);
-      applyFieldToNode(spec.key, true);
-    });
-  }
-
   el.appendChild(label);
   el.appendChild(select);
   el.appendChild(fieldsWrap);
-
-  // ── Favorites bar ────────────────────────────────────────────────────────────
-  const favBar = document.createElement("div");
-  el.appendChild(favBar);
-
-  const getCurrentNodeId = () => String(getStore().selected_sampler_id ?? "");
-
-  const captureSnapshot = () => {
-    const st = getStore();
-    const snap = { nodeId: getCurrentNodeId() };
-    for (const spec of FIELD_SPECS) {
-      const el2 = fields[spec.key];
-      snap[spec.key] = el2 ? String(el2.value ?? "") : "";
-    }
-    _favorites.push(snap);
-  };
-
-  const applySnapshot = (snap) => {
-    const st = getStore();
-    // Switch to the saved node
-    if (snap.nodeId && snap.nodeId !== st.selected_sampler_id) {
-      st.selected_sampler_id = snap.nodeId;
-      select.value = snap.nodeId;
-    }
-    // Apply field values
-    for (const spec of FIELD_SPECS) {
-      const inp = fields[spec.key];
-      if (!inp || snap[spec.key] === undefined) continue;
-      inp.value = snap[spec.key];
-      applyFieldToNode(spec.key, true);
-    }
-    scheduleRefresh();
-  };
-
-  const rebuildFavBar = () => {
-    renderFavoritesBar(favBar, getCurrentNodeId(), applySnapshot, captureSnapshot);
-  };
-
-  // Rebuild favbar when node selection changes
-  select.addEventListener("change", rebuildFavBar);
-
-  rebuildFavBar();
 
   scheduleRefresh();
 

@@ -393,10 +393,10 @@ function registerSettings(applyFn) {
 
   S.addSetting({
     id: "AK.MultipleSamplersControl_Enable",
-    name: "Multiple Samplers Control",
+    name: "Enable panel:",
     type: "boolean",
     defaultValue: true,
-    category: ["AK", "Project, Samplers, Debug Panels", "Multiple Samplers Control"],
+    category: ["AK", "Multiple Samplers Control", "Multiple Samplers Control"],
     onChange: (newVal, oldVal) => { applyFn(newVal === true); }
 
   });

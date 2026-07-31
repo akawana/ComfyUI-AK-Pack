@@ -210,8 +210,7 @@ function commitIfEnabled(key, value, enabledMap) {
 
   const st = readProjectSettingsValues();
   st[key] = value;
-  writeProjectSettingsValues(st);
-  syncAllProjectSettingsOutNodes();
+  syncAllProjectSettingsOutNodes(writeProjectSettingsValues(st));
 }
 
 export function renderProjectTab(rootEl) {
@@ -229,8 +228,7 @@ export function renderProjectTab(rootEl) {
     ctl.inp.addEventListener("change", function () {
       const st = readProjectSettingsValues();
       st.output_filename = String(ctl.inp.value ?? "").trim();   // Только output_filename
-      writeProjectSettingsValues(st);
-      syncAllProjectSettingsOutNodes();
+      syncAllProjectSettingsOutNodes(writeProjectSettingsValues(st));
     });
     row.appendChild(ctl.wrap);
   }
@@ -461,8 +459,7 @@ export function renderProjectTab(rootEl) {
       st.open_image_type = meta.type;
       st.timestamp = Date.now();
 
-      writeProjectSettingsValues(st);
-      syncAllProjectSettingsOutNodes();
+      syncAllProjectSettingsOutNodes(writeProjectSettingsValues(st));
     });
 
     btnPaste.addEventListener("mousedown", async (e) => {
@@ -524,8 +521,7 @@ export function renderProjectTab(rootEl) {
       st.open_image_type = meta.type;
       st.timestamp = Date.now();
 
-      writeProjectSettingsValues(st);
-      syncAllProjectSettingsOutNodes();
+      syncAllProjectSettingsOutNodes(writeProjectSettingsValues(st));
     });
 
     btnRow.appendChild(btn);

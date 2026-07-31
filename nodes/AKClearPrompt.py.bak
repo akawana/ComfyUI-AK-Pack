@@ -1,7 +1,7 @@
 import re
 
 from comfy_api.latest import ComfyExtension, io
-from .PromptUtils import clearLineBreaks, formatTags, omitSingleDuplicates
+from .PromptUtils import clearLineBreaks, formatTags
 
 
 def _parse_exclude_tags(raw: str) -> list[str]:
@@ -37,25 +37,15 @@ def _exclude_tags_from_text(text: str, tags: list[str]) -> str:
         tag_space = tag_underscore.replace("_", " ")
 
         for variant in (re.escape(tag_underscore), re.escape(tag_space)):
-            # Match weighted form: (tag:1.1) or (tag: 1.1) — remove whole token
-            # plus its trailing comma+spaces only (leading comma belongs to prev tag).
-            weighted_pattern = re.compile(
-                r"\(\s*" + variant + r"\s*:\s*[\d.]+\s*\)\s*(?:,\s*)?",
-                re.IGNORECASE,
-            )
-            text = weighted_pattern.sub("", text)
-
-            # Match plain form — remove token plus its trailing comma+spaces only.
+            # Match the tag when it appears between delimiters:
+            # optional leading comma+spaces, the tag itself, optional
+            # trailing comma+spaces.  We consume the comma on one side only
+            # to avoid eating delimiters that belong to adjacent tags.
             pattern = re.compile(
-                variant + r"\s*(?:,\s*)?",
+                r"(?:,\s*)?" + variant + r"(?:\s*,)?",
                 re.IGNORECASE,
             )
             text = pattern.sub("", text)
-
-    # Clean up dangling/double commas left by removals.
-    text = re.sub(r",\s*,", ",", text)       # double commas
-    text = re.sub(r"^\s*,\s*", "", text)     # leading comma
-    text = re.sub(r"\s*,\s*$", "", text)     # trailing comma
 
     return text
 
@@ -87,10 +77,6 @@ class AKClearPrompt(io.ComfyNode):
                     "replace_underscore",
                     default=True,
                 ),
-                io.Boolean.Input(
-                    "omit_single_dup_tags",
-                    default=True,
-                ),
                 io.String.Input(
                     "exclude_tags",
                     default="",
@@ -110,7 +96,6 @@ class AKClearPrompt(io.ComfyNode):
         clear_line_breaks: bool = True,
         replace_underscore: bool = True,
         exclude_tags: str = "",
-        omit_single_dup_tags: bool = True,
     ) -> io.NodeOutput:
 
         result = text or ""
@@ -129,14 +114,12 @@ class AKClearPrompt(io.ComfyNode):
         # 3. Remove excluded tags (matched as underscore and space variants).
         tags = _parse_exclude_tags(exclude_tags)
         if tags:
+            # If underscores were already replaced we need space-form keys;
+            # _exclude_tags_from_text handles both variants regardless.
             result = _exclude_tags_from_text(result, tags)
 
         # 4. Reformat tags.
         result = formatTags(result)
-
-        # 5. Remove single-word tags that have a multi-word counterpart.
-        if omit_single_dup_tags:
-            result, _ = omitSingleDuplicates(result)
 
         return io.NodeOutput(result)
 
