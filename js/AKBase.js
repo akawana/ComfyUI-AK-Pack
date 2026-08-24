@@ -64,7 +64,7 @@ async function loadCompare(node, stateJson) {
   state.a.url = aUrl;
   state.b.url = bUrl;
 
-  DBG("compare loading", { aUrl, bUrl });
+  // DBG("compare loading", { aUrl, bUrl });
 
   const [aImg, bImg] = await Promise.all([loadImageFromUrl(aUrl), loadImageFromUrl(bUrl)]);
   if (state.loadingToken !== token) return;
@@ -81,7 +81,7 @@ async function loadCompare(node, stateJson) {
   state.a.loaded = true;
   state.b.loaded = true;
 
-  DBG("compare loaded", { a: [aImg.naturalWidth, aImg.naturalHeight], b: [bImg.naturalWidth, bImg.naturalHeight] });
+  // DBG("compare loaded", { a: [aImg.naturalWidth, aImg.naturalHeight], b: [bImg.naturalWidth, bImg.naturalHeight] });
   app.graph.setDirtyCanvas(true, true);
 }
 
@@ -114,7 +114,7 @@ async function loadGallery(node, stateJson) {
   const nid = node?.id;
   const prefix = String(stateJson?.gallery_prefix ?? ((nid !== undefined && nid !== null) ? `ak_base_image_xy_${nid}_` : "ak_base_image_xy_"));
 
-  DBG("gallery loading", { count, prefix });
+  // DBG("gallery loading", { count, prefix });
 
   const { images, urls } = await loadGalleryByCount(prefix, count);
   if (state.loadingToken !== token) return;
@@ -129,7 +129,7 @@ async function loadGallery(node, stateJson) {
   state.gallery.urls = urls;
   state.gallery.hoverIndex = -1;
 
-  DBG("gallery loaded", { count: images.length });
+  // DBG("gallery loaded", { count: images.length });
   app.graph.setDirtyCanvas(true, true);
 }
 
