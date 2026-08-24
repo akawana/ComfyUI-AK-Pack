@@ -53,7 +53,8 @@ function resolveTargets(listText, sortingMode) {
 
     for (const tok of tokens) {
         if (isIntToken(tok)) {
-            const id = Number(tok);
+            const id = tok;
+            // const id = Number(tok);
             const n = byNodeId.get(id);
             if (n && !seen.has(`node:${n.id}`)) {
                 seen.add(`node:${n.id}`);

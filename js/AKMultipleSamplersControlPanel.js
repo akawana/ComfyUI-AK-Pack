@@ -164,7 +164,8 @@ function findNodesFromNodesList(nodesListText) {
 // console.log("Processing token:", tok);
 
     if (isIntToken(tok)) {
-      const id = Number(tok);
+      const id = tok;
+      // const id = Number(tok);
       const n = byId.get(id);
       if (n && !seen.has(n.id)) {
         seen.add(n.id);

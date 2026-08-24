@@ -303,10 +303,10 @@ function getAllGraphNodes() {
 }
 
 function getNodeById(id) {
-  const nid = Number(id);
-  if (!Number.isFinite(nid)) return null;
+  if (id === undefined || id === null || id === "") return null;
+  const nid = String(id);
   for (const n of getAllGraphNodes()) {
-    if (n?.id === nid) return n;
+    if (String(n?.id) === nid) return n;
   }
   return null;
 }
@@ -995,7 +995,8 @@ export function buildShortcutMap(getStore, getControlledNodes) {
 
     let foundId = null;
     if (isIntToken(token)) {
-      const n = byId.get(Number(token));
+      const n = byId.get(token);
+      // const n = byId.get(Number(token));
       if (n) foundId = String(n.id);
     } else {
       const sub = token.toLowerCase();
