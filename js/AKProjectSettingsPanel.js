@@ -370,6 +370,8 @@ const NODE_FIELD_GROUPS = {
   AKProjectSettingsOutFileName: [
     "output_filename",
     "output_subfolder",
+    "open_image_filename",
+    "open_image_subfolder",
   ],
   AKProjectSettingsOutResize: [
     "width",
