@@ -24,6 +24,16 @@ def _safe_join_under(root: str, *parts: str) -> str:
     return joined
 
 
+def _normalize_subfolder(subfolder: str) -> str:
+    """
+    Normalize a user-provided subfolder to a relative path:
+    accepts both \\ and /, ignores leading/trailing/duplicate separators and '.' parts.
+    """
+    parts = [p.strip() for p in re.split(r"[\\/]+", subfolder or "")]
+    parts = [p for p in parts if p and p != "."]
+    return os.path.join(*parts) if parts else ""
+
+
 def _tensor_to_pil(tensor) -> Image.Image:
     """Convert a ComfyUI image tensor (B,H,W,C) float32 0..1 to PIL RGB."""
     arr = tensor[0].cpu().numpy()
@@ -191,11 +201,12 @@ class AKSaveImageAndData(io.ComfyNode):
         output_root = os.path.abspath(folder_paths.get_output_directory())
 
         # ── resolve save directory ───────────────────────────────────────────
-        subfolder = (subfolder or "").strip()
+        subfolder = _normalize_subfolder(subfolder)
         if subfolder:
             save_dir = _safe_join_under(output_root, subfolder)
             if not save_dir:
                 save_dir = output_root   # path traversal guard
+                subfolder = ""
         else:
             save_dir = output_root
 
@@ -235,14 +246,7 @@ class AKSaveImageAndData(io.ComfyNode):
             composite.paste(orig_pil, (0, 0))
             composite.paste(img_pil, (orig_pil.width, 0))
 
-            ba_dir_name = "before_after"
-            if subfolder:
-                ba_dir = _safe_join_under(output_root, subfolder, ba_dir_name)
-                if not ba_dir:
-                    ba_dir = os.path.join(output_root, ba_dir_name)
-            else:
-                ba_dir = os.path.join(output_root, ba_dir_name)
-
+            ba_dir = os.path.join(save_dir, "before_after")
             os.makedirs(ba_dir, exist_ok=True)
             ba_path = os.path.join(ba_dir, f"{stem}.png")
             composite.save(ba_path, format="PNG")

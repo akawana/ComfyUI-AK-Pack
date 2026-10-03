@@ -258,10 +258,10 @@ export function installInputHandlers(node) {
 
         // by id (keep exactly as was)
         if (Number.isFinite(num) && String(num) === raw) {
-          const id = Math.trunc(num);
-          return nodes.find(n => n?.id === id) || null;
+          const id = String(Math.trunc(num));
+          return nodes.find(n => String(n?.id) === id) || null;
         }
-
+        
         const t = tok.toLowerCase();
 
         // exact match first

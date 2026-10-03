@@ -244,7 +244,7 @@ export function renderProjectTab(rootEl) {
   }
 
   if (enabled.width_height === true) {
-    const wCtl = mkStepControl(values.width,  1, 16384, 1);
+    const wCtl = mkStepControl(values.width, 1, 16384, 1);
     const hCtl = mkStepControl(values.height, 1, 16384, 1);
 
     wCtl.inp.addEventListener("change", function () {
@@ -274,7 +274,7 @@ export function renderProjectTab(rootEl) {
       const hVal = clampInt(hCtl.inp.value, 1, 16384);
       wCtl.inp.value = String(hVal);
       hCtl.inp.value = String(wVal);
-      commitIfEnabled("width",  hVal, enabled);
+      commitIfEnabled("width", hVal, enabled);
       commitIfEnabled("height", wVal, enabled);
       swapBtn.blur();
     });
@@ -402,7 +402,7 @@ export function renderProjectTab(rootEl) {
       img.style.height = "auto";
       img.style.display = "block";
       // force reload if browser tries to reuse cached decode
-      img.decode().catch(() => {});
+      img.decode().catch(() => { });
       preview.appendChild(img);
     }
 
@@ -459,7 +459,10 @@ export function renderProjectTab(rootEl) {
       st.open_image_type = meta.type;
       st.timestamp = Date.now();
 
-      syncAllProjectSettingsOutNodes(writeProjectSettingsValues(st));
+      writeProjectSettingsValues(st);
+      syncAllProjectSettingsOutNodes(["open_image", "open_image_filename", "open_image_subfolder", "open_image_type"]);
+
+      // syncAllProjectSettingsOutNodes(writeProjectSettingsValues(st));
     });
 
     btnPaste.addEventListener("mousedown", async (e) => {
@@ -480,7 +483,7 @@ export function renderProjectTab(rootEl) {
           if (mimeType.startsWith("image/")) {
             try {
               imageBlob = await item.getType(mimeType);
-            } catch (_) {}
+            } catch (_) { }
             break;
           }
         }
@@ -492,8 +495,8 @@ export function renderProjectTab(rootEl) {
 
       const ext = imageBlob.type === "image/png" ? "png"
         : imageBlob.type === "image/jpeg" ? "jpg"
-        : imageBlob.type === "image/webp" ? "webp"
-        : "png";
+          : imageBlob.type === "image/webp" ? "webp"
+            : "png";
 
       const workflowName = (
         app.workflowManager?.activeWorkflow?.filename ||
