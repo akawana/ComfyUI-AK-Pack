@@ -455,7 +455,7 @@ export function applyOutputsVisibility(enableMap) {
     output_subfolder: ["output_subfolder"],
     width_height: ["width", "height"],
     do_resize: ["do_resize"],
-    open_image: ["image", "image_filename", "image_path"],
+    open_image: ["image", "mask", "image_filename", "image_path"],
   };
 
   // build allow-set by groups (default: enabled unless explicitly false)
@@ -583,7 +583,7 @@ app.registerExtension({
   },
 
   loadedGraphNode(node) {
-    if (TARGET_NODES.has(node?.comfyClass)) { 
+    if (TARGET_NODES.has(node?.comfyClass)) {
       syncNode(node);
       queueMicrotask(() => {
         hideWidget(node);

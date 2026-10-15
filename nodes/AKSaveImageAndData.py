@@ -36,9 +36,24 @@ def _normalize_subfolder(subfolder: str) -> str:
 
 def _tensor_to_pil(tensor) -> Image.Image:
     """Convert a ComfyUI image tensor (B,H,W,C) float32 0..1 to PIL RGB."""
-    arr = tensor[0].cpu().numpy()
+    arr = tensor[0].cpu().numpy()[..., :3]
     arr = (arr * 255.0).clip(0, 255).astype(np.uint8)
     return Image.fromarray(arr, "RGB")
+
+
+def _mask_to_alpha(mask, size) -> Image.Image:
+    """Convert a ComfyUI mask tensor (B,H,W) or (H,W), 1 = transparent, to PIL 'L' alpha of given size."""
+    m = mask
+    if m.dim() == 3:
+        m = m[0]
+    elif m.dim() == 4:
+        m = m[0, ..., 0]
+    arr = (1.0 - m.cpu().numpy().astype(np.float32)).clip(0.0, 1.0)
+    arr = (arr * 255.0).round().astype(np.uint8)
+    alpha = Image.fromarray(arr, "L")
+    if alpha.size != size:
+        alpha = alpha.resize(size, Image.LANCZOS)
+    return alpha
 
 
 def _resolve_filename(
@@ -141,11 +156,17 @@ class AKSaveImageAndData(io.ComfyNode):
             is_output_node=True,
             description=(
                 "Saves a PNG image (and optionally a .txt sidecar) to the output folder. "
+                "If 'mask' is connected, the PNG is saved with an alpha channel (alpha = 1 - mask). "
                 "Supports dynamic filenames with counter patterns (###). "
                 "If 'original' is connected, also saves a side-by-side before/after composite."
             ),
             inputs=[
                 io.Image.Input("image", tooltip="Image to save."),
+                io.Mask.Input(
+                    "mask",
+                    optional=True,
+                    tooltip="If connected, the image is saved as RGBA PNG with alpha = 1 - mask.",
+                ),
                 io.String.Input(
                     "filename",
                     default="",
@@ -191,6 +212,7 @@ class AKSaveImageAndData(io.ComfyNode):
     def execute(
         cls,
         image,
+        mask=None,
         filename: str = "",
         txt: str = "",
         original=None,
@@ -221,8 +243,13 @@ class AKSaveImageAndData(io.ComfyNode):
 
         # ── save main image ──────────────────────────────────────────────────
         img_pil = _tensor_to_pil(image)
+        save_pil = img_pil
+        if mask is not None:
+            save_pil = img_pil.copy()
+            save_pil.putalpha(_mask_to_alpha(mask, img_pil.size))
+
         img_path = os.path.join(save_dir, f"{stem}.png")
-        img_pil.save(img_path, format="PNG")
+        save_pil.save(img_path, format="PNG")
 
         # ── save txt sidecar ─────────────────────────────────────────────────
         if txt and txt.strip():

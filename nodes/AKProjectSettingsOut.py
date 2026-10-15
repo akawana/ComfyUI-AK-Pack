@@ -5,13 +5,44 @@ import io as io_module
 
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 import folder_paths
 
 from comfy_api.latest import ComfyExtension, io
 
 
 _GARBAGE_SUBFOLDER = "garbage"
+_DEFAULT_ALPHA_FILL_COLOR = (128, 128, 128)
+
+
+def _parse_color(value) -> tuple:
+    """Parse '128, 128, 128' / '128 128 128' / '#808080' / '128' into an (R, G, B) tuple."""
+    s = str(value or "").strip()
+    if not s:
+        return _DEFAULT_ALPHA_FILL_COLOR
+
+    if s.startswith("#"):
+        h = s[1:]
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        if len(h) >= 6:
+            try:
+                return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+            except ValueError:
+                return _DEFAULT_ALPHA_FILL_COLOR
+        return _DEFAULT_ALPHA_FILL_COLOR
+
+    parts = [p for p in s.replace(";", ",").replace(" ", ",").split(",") if p.strip()]
+    try:
+        nums = [max(0, min(255, int(round(float(p))))) for p in parts]
+    except ValueError:
+        return _DEFAULT_ALPHA_FILL_COLOR
+
+    if len(nums) == 1:
+        return (nums[0], nums[0], nums[0])
+    if len(nums) >= 3:
+        return (nums[0], nums[1], nums[2])
+    return _DEFAULT_ALPHA_FILL_COLOR
 
 
 def _is_under_dir(path: str, root: str) -> bool:
@@ -63,13 +94,34 @@ def _find_first_subfolder_abs_path_by_filename(filename: str) -> str:
     return ""
 
 
-def _load_open_image(vals: dict):
-    """Shared logic: load the opened image (from disk or embedded base64)."""
+def _pil_to_image_and_mask(img, fill_color=_DEFAULT_ALPHA_FILL_COLOR):
+    img = ImageOps.exif_transpose(img)
+    has_alpha = "A" in img.getbands() or (img.mode == "P" and "transparency" in img.info)
+
+    if has_alpha:
+        rgba = img.convert("RGBA")
+        bg = Image.new("RGBA", rgba.size, tuple(fill_color) + (255,))
+        rgb = Image.alpha_composite(bg, rgba).convert("RGB")
+    else:
+        rgb = img.convert("RGB")
+
+    np_img = np.array(rgb).astype(np.float32) / 255.0
+    image = torch.from_numpy(np_img)[None,]
+
+    if has_alpha:
+        alpha = np.array(img.convert("RGBA").getchannel("A")).astype(np.float32) / 255.0
+        mask = 1.0 - torch.from_numpy(alpha)
+    else:
+        mask = torch.zeros((np_img.shape[0], np_img.shape[1]), dtype=torch.float32)
+
+    return image, mask.unsqueeze(0)
+
+
+def _load_open_image(vals: dict, fill_color=_DEFAULT_ALPHA_FILL_COLOR):
+    """Shared logic: load the opened image (from disk or embedded base64). Returns (image, mask)."""
     open_image_filename = str(vals.get("open_image_filename") or "").strip()
     open_image_subfolder = str(vals.get("open_image_subfolder") or "").strip()
     open_image_type = str(vals.get("open_image_type") or "input").strip() or "input"
-
-    image = None
 
     if open_image_filename and open_image_type in ("input", "temp"):
         try:
@@ -81,25 +133,22 @@ def _load_open_image(vals: dict):
                 base_dir_abs, open_image_subfolder, open_image_filename
             )
             if abs_path and os.path.isfile(abs_path):
-                img = Image.open(abs_path).convert("RGB")
-                np_img = np.array(img).astype(np.float32) / 255.0
-                image = torch.from_numpy(np_img)[None,]
+                with Image.open(abs_path) as img:
+                    return _pil_to_image_and_mask(img, fill_color)
         except Exception:
-            image = None
+            pass
 
-    if image is None:
-        image_data = vals.get("open_image", "")
-        if isinstance(image_data, str) and image_data.startswith("data:image"):
-            try:
-                _, b64 = image_data.split(",", 1)
-                raw = base64.b64decode(b64)
-                img = Image.open(io_module.BytesIO(raw)).convert("RGB")
-                np_img = np.array(img).astype(np.float32) / 255.0
-                image = torch.from_numpy(np_img)[None,]
-            except Exception:
-                image = None
+    image_data = vals.get("open_image", "")
+    if isinstance(image_data, str) and image_data.startswith("data:image"):
+        try:
+            _, b64 = image_data.split(",", 1)
+            raw = base64.b64decode(b64)
+            with Image.open(io_module.BytesIO(raw)) as img:
+                return _pil_to_image_and_mask(img, fill_color)
+        except Exception:
+            pass
 
-    return image
+    return None, None
 
 
 class AKProjectSettingsOutImage(io.ComfyNode):
@@ -110,7 +159,8 @@ class AKProjectSettingsOutImage(io.ComfyNode):
             display_name="AK Project Settings Out Image",
             category="AK/settings",
             description=(
-                "Outputs the opened image from the Project Settings panel."
+                "Outputs the opened image from the Project Settings panel. "
+                "Transparent areas are filled with alpha_fill_color; alpha is output as mask (mask = 1 - alpha)."
             ),
             inputs=[
                 io.String.Input(
@@ -119,22 +169,29 @@ class AKProjectSettingsOutImage(io.ComfyNode):
                     multiline=False,
                     tooltip="JSON string from the AK Project Settings panel.",
                 ),
+                io.String.Input(
+                    "alpha_fill_color",
+                    default="128, 128, 128",
+                    multiline=False,
+                    tooltip="Background color for transparent areas: 'R, G, B' (0-255) or '#RRGGBB'.",
+                ),
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
+                io.Mask.Output(display_name="mask"),
             ],
         )
 
     @classmethod
-    def execute(cls, ak_project_settings_json: str) -> io.NodeOutput:
+    def execute(cls, ak_project_settings_json: str, alpha_fill_color: str = "128, 128, 128") -> io.NodeOutput:
         try:
             vals = json.loads(ak_project_settings_json or "{}")
         except Exception:
             vals = {}
 
-        image = _load_open_image(vals)
+        image, mask = _load_open_image(vals, _parse_color(alpha_fill_color))
 
-        return io.NodeOutput(image)
+        return io.NodeOutput(image, mask)
 
 
 class AKProjectSettingsOutFileName(io.ComfyNode):

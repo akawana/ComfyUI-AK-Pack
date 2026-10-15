@@ -277,9 +277,10 @@ function hookSetter(node, context = "") {
   _disableVarNameInputConnections(node);
 
   const w = getWidget(node, "var_name");
-  // if (!w || w._akVarHooked) return;
+  if (!w || w._akVarHooked) return;
   w._akVarHooked = true;
 
+  
   w._akPrev = (typeof w.value === "string") ? w.value : "";
 
 
@@ -363,7 +364,7 @@ function _getSetterVarName(node) {
   return "";
 }
 
-function _makeUniqueSetterName(graph, desired, selfId) {
+function _makeUniqueSetterName(graph, desired, selfNode) {
   const name0 = _trimStr(desired);
   if (!name0) return "";
 
@@ -373,7 +374,7 @@ function _makeUniqueSetterName(graph, desired, selfId) {
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
     if (!n || n.type !== "Setter") continue;
-    if (selfId != null && n.id === selfId) continue;
+    if (n === selfNode) continue;
     const nm = _getSetterVarName(n);
     if (nm) used.add(nm);
   }
@@ -403,8 +404,7 @@ function _ensureUniqueSetterVarName(node, updatePrev = true) {
     const cur = w ? _trimStr(w.value) : _trimStr(node?.properties?.var_name);
     if (!cur) return false;
 
-    const uniq = _makeUniqueSetterName(g, cur, selfId);
-    if (!uniq || uniq === cur) return false;
+    const uniq = _makeUniqueSetterName(g, cur, node);
 
     if (w) {
       w._akSilent = true;
